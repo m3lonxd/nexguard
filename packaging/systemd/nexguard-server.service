@@ -1,0 +1,35 @@
+[Unit]
+Description=NexGuard panel/server (dashboard, HTTP API, SQLite store)
+Documentation=https://github.com/nexguard/nexguard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/nexguard-serverd -addr :8842 -db /var/lib/nexguard/nexguard.db
+Restart=always
+RestartSec=5s
+
+# Dedicated, unprivileged system user; the panel only needs to listen on a
+# TCP port and read/write its own SQLite file, so no elevated capabilities
+# are required at all.
+User=nexguard
+Group=nexguard
+DynamicUser=no
+NoNewPrivileges=yes
+
+# --- Filesystem & misc hardening ---------------------------------------
+ProtectSystem=strict
+ReadWritePaths=/var/lib/nexguard
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target
