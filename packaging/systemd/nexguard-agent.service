@@ -1,0 +1,63 @@
+[Unit]
+Description=NexGuard security agent (SSH brute-force detection & auto-block)
+Documentation=https://github.com/nexguard/nexguard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/nexguard-agentd -config /etc/nexguard/agent.yaml -audit-log /var/log/nexguard/actions.jsonl
+Restart=always
+RestartSec=5s
+
+# --- Identity & capabilities -------------------------------------------
+# Runs as a dedicated, unprivileged system user rather than root. The
+# responder shells out to `nft`/`ufw` to add/remove drop rules, which needs
+# CAP_NET_ADMIN (and CAP_NET_RAW, belt-and-suspenders for netlink/raw socket
+# paths some nft code paths touch). CAP_DAC_READ_SEARCH lets the agent read
+# /etc/nexguard/agent.yaml and /var/log/auth.log even when those are left
+# root-owned 0600/0640 by whoever ran `nexguard-agentd -enroll` as root, and
+# lets it read the system journal without systemd-journal group membership.
+# CAP_KILL is reserved for a future process-response tier; unused today but
+# requested up front so a later Tier B/C responder doesn't need a repackage.
+User=nexguard-agent
+Group=nexguard-agent
+DynamicUser=no
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_KILL CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_KILL CAP_DAC_READ_SEARCH
+# Verified empirically (Debian bookworm + systemd 252, Docker test container,
+# 2026-10-26): with the capabilities above, a non-root user running `nft add
+# rule ...` under NoNewPrivileges=yes still succeeds (ambient caps survive
+# the execve of a plain, non-setuid /usr/sbin/nft binary). A no-capability
+# control under the same unit failed with "Operation not permitted", proving
+# the capabilities -- not container privilege -- are what make it work. So
+# this line stays.
+#
+# CAVEAT found during the same test: the `ufw` fallback backend does NOT
+# work under this non-root configuration no matter what capabilities are
+# granted -- ufw's own Python code hard-checks `os.geteuid() == 0` and exits
+# with "ERROR: You need to be root to run this script" before it ever looks
+# at capabilities. This is a limitation of ufw itself, not of this unit or
+# of NoNewPrivileges. On a target where nft is present (the default on all
+# current Debian/Ubuntu/RHEL releases) this is moot, since the responder
+# tries nft first and only falls back to ufw if nft is absent. A host that
+# truly has only ufw and no nft would need this service run as root (drop
+# User=/Group=/AmbientCapabilities=/CapabilityBoundingSet= below) for the
+# ufw fallback to actually apply blocks instead of recording "failed".
+NoNewPrivileges=yes
+
+# --- Filesystem & misc hardening ---------------------------------------
+ProtectSystem=strict
+ReadWritePaths=/var/log/nexguard
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

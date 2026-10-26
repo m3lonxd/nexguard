@@ -1,0 +1,64 @@
+# nfpm config for the nexguard-agent .deb package.
+# Build binaries first (from the repo root):
+#   go build -o dist/nexguard-agentd ./cmd/agent
+# Then package. nfpm resolves every relative `src`/script path in this file
+# against the CURRENT WORKING DIRECTORY, not against this file's own
+# directory -- so this must be run from the repo root, exactly like this:
+#   nfpm package --config packaging/nfpm-agent.yaml --target dist/ --packager deb
+# yaml-language-server: $schema=https://nfpm.goreleaser.com/schema.json
+
+name: "nexguard-agent"
+arch: "amd64"
+platform: "linux"
+version: "0.1.0"
+section: "admin"
+priority: "optional"
+maintainer: "NexGuard <ops@nexguard.invalid>"
+description: |
+  NexGuard security agent: tails SSH auth logs (journald or /var/log/auth.log),
+  detects brute-force login attempts, and automatically blocks the offending
+  IP via nftables (falling back to ufw) as a Tier A response, reporting both
+  the finding and the action back to a nexguard-server panel.
+vendor: "NexGuard"
+homepage: "https://github.com/nexguard/nexguard"
+license: "Proprietary"
+
+depends:
+  - systemd
+
+contents:
+  - src: dist/nexguard-agentd
+    dst: /usr/bin/nexguard-agentd
+    file_info:
+      owner: root
+      group: root
+      mode: 0755
+
+  - src: packaging/systemd/nexguard-agent.service
+    dst: /lib/systemd/system/nexguard-agent.service
+    file_info:
+      owner: root
+      group: root
+      mode: 0644
+
+  # Created here too (in addition to the postinstall script) so dpkg itself
+  # tracks ownership of the directory; the postinstall script re-asserts the
+  # same owner/mode idempotently once the nexguard-agent user actually exists
+  # (it doesn't yet at content-extraction time, dpkg only knows the name).
+  - dst: /etc/nexguard
+    type: dir
+    file_info:
+      owner: root
+      group: root
+      mode: 0755
+
+  - dst: /var/log/nexguard
+    type: dir
+    file_info:
+      owner: root
+      group: root
+      mode: 0750
+
+scripts:
+  postinstall: packaging/scripts/agent-postinstall.sh
+  preremove: packaging/scripts/agent-preremove.sh

@@ -1,0 +1,55 @@
+# nfpm config for the nexguard-server .deb package.
+# Build binaries first (from the repo root):
+#   go build -o dist/nexguard-serverd ./cmd/server
+# Then package. nfpm resolves every relative `src`/script path in this file
+# against the CURRENT WORKING DIRECTORY, not against this file's own
+# directory -- so this must be run from the repo root, exactly like this:
+#   nfpm package --config packaging/nfpm-server.yaml --target dist/ --packager deb
+# yaml-language-server: $schema=https://nfpm.goreleaser.com/schema.json
+
+name: "nexguard-server"
+arch: "amd64"
+platform: "linux"
+version: "0.1.0"
+section: "admin"
+priority: "optional"
+maintainer: "NexGuard <ops@nexguard.invalid>"
+description: |
+  NexGuard panel/server: SQLite-backed HTTP API and live dashboard that
+  receives findings and actions reported by nexguard-agent instances.
+vendor: "NexGuard"
+homepage: "https://github.com/nexguard/nexguard"
+license: "Proprietary"
+
+depends:
+  - systemd
+
+contents:
+  - src: dist/nexguard-serverd
+    dst: /usr/bin/nexguard-serverd
+    file_info:
+      owner: root
+      group: root
+      mode: 0755
+
+  - src: packaging/systemd/nexguard-server.service
+    dst: /lib/systemd/system/nexguard-server.service
+    file_info:
+      owner: root
+      group: root
+      mode: 0644
+
+  # Created here too (in addition to the postinstall script) so dpkg itself
+  # tracks ownership of the directory; the postinstall script re-asserts the
+  # same owner/mode idempotently once the nexguard user actually exists (it
+  # doesn't yet at content-extraction time, dpkg only knows the name).
+  - dst: /var/lib/nexguard
+    type: dir
+    file_info:
+      owner: root
+      group: root
+      mode: 0750
+
+scripts:
+  postinstall: packaging/scripts/server-postinstall.sh
+  preremove: packaging/scripts/server-preremove.sh
