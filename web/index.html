@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexGuard Panel</title>
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <h1>NexGuard</h1>
+  <p class="subtitle">Sunucu güvenlik izleme paneli</p>
+</header>
+
+<main x-data="dashboard()" x-init="init()">
+  <p class="error" x-show="error" x-text="error"></p>
+
+  <section>
+    <h2>Sunucular</h2>
+    <table>
+      <thead>
+        <tr><th>Hostname</th><th>İşletim Sistemi</th><th>Kayıt Tarihi</th></tr>
+      </thead>
+      <tbody>
+        <template x-for="s in servers" :key="s.id">
+          <tr>
+            <td x-text="s.hostname"></td>
+            <td x-text="s.os"></td>
+            <td x-text="fmtTime(s.enrolled_at)"></td>
+          </tr>
+        </template>
+        <tr x-show="servers.length === 0"><td colspan="3">Henüz kayıtlı sunucu yok.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Bulgular</h2>
+    <table>
+      <thead>
+        <tr><th>Sunucu</th><th>Tip</th><th>Önem</th><th>Özet</th><th>Zaman</th></tr>
+      </thead>
+      <tbody>
+        <template x-for="f in findings" :key="f.id">
+          <tr>
+            <td x-text="hostnameFor(f.server_id)"></td>
+            <td x-text="f.type"></td>
+            <td><span class="badge" :class="'severity-' + f.severity" x-text="f.severity"></span></td>
+            <td x-text="f.summary"></td>
+            <td x-text="fmtTime(f.created_at)"></td>
+          </tr>
+        </template>
+        <tr x-show="findings.length === 0"><td colspan="5">Henüz bulgu yok.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Uygulanan Aksiyonlar</h2>
+    <table>
+      <thead>
+        <tr><th>Seviye</th><th>Aksiyon</th><th>Parametreler</th><th>Uygulandı</th><th>Geri Alındı</th></tr>
+      </thead>
+      <tbody>
+        <template x-for="a in actions" :key="a.id">
+          <tr>
+            <td x-text="a.tier"></td>
+            <td x-text="a.action_type"></td>
+            <td x-text="JSON.stringify(a.params)"></td>
+            <td x-text="fmtTime(a.applied_at)"></td>
+            <td x-text="a.reverted_at ? fmtTime(a.reverted_at) : '—'"></td>
+          </tr>
+        </template>
+        <tr x-show="actions.length === 0"><td colspan="5">Henüz aksiyon yok.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
