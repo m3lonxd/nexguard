@@ -2,3 +2,10 @@
 *.db
 *.db-wal
 *.db-shm
+
+# ortam değişkenleri / genel
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
