@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}NexGuard{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+{% if user %}
+<header class="top">
+  <a class="brand" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
+    NexGuard
+  </a>
+  <nav>
+    <a href="/" {% if page == 'overview' %}class="on"{% endif %}>Genel Bakış</a>
+    {% for m in modules %}<a href="/m/{{ m.slug }}" {% if page == m.slug %}class="on"{% endif %}>{{ m.title }}</a>{% endfor %}
+    <a href="/settings" {% if page == 'settings' %}class="on"{% endif %}>Ayarlar</a>
+  </nav>
+  <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Çıkış ({{ user }})</button></form>
+</header>
+{% endif %}
+<main>{% block content %}{% endblock %}</main>
+<footer>NexGuard {{ version }}</footer>
+</body>
+</html>

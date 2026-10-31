@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Genel Bakış</h1>
+<div class="grid">
+  <div class="card"><h2>Sistem</h2>
+    <dl><dt>Ana makine</dt><dd>{{ info.hostname }}</dd>
+    <dt>Çekirdek</dt><dd>{{ info.kernel }}</dd>
+    <dt>Çalışma süresi</dt><dd>{{ info.uptime_seconds | uptime }}</dd></dl></div>
+  <div class="card"><h2>Yük</h2>
+    <p class="big">{{ info.load[0] }}</p>
+    <p class="muted">5 dk {{ info.load[1] }} · 15 dk {{ info.load[2] }} · {{ info.cpus }} çekirdek</p></div>
+  <div class="card"><h2>Bellek</h2>
+    <progress max="{{ info.mem_total }}" value="{{ info.mem_used }}"></progress>
+    <p class="muted">{{ info.mem_used | hb }} / {{ info.mem_total | hb }}</p></div>
+  <div class="card"><h2>Disk (/)</h2>
+    <progress max="{{ info.disk_total }}" value="{{ info.disk_used }}"></progress>
+    <p class="muted">{{ info.disk_used | hb }} / {{ info.disk_total | hb }}</p></div>
+</div>
+<h2>Son olaylar</h2>
+<div class="card">
+{% if events %}
+<table><thead><tr><th>Zaman</th><th>Modül</th><th>Seviye</th><th>Mesaj</th></tr></thead><tbody>
+{% for e in events %}<tr><td>{{ e.ts }}</td><td>{{ e.module }}</td><td><span class="lvl {{ e.level }}">{{ e.level }}</span></td><td>{{ e.message }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="muted">Henüz olay yok.</p>{% endif %}
+</div>
+{% endblock %}
