@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Ayarlar - NexGuard{% endblock %}
+{% block content %}
+<h1>Ayarlar</h1>
+<div class="card narrow-ish">
+  <h2>İki adımlı doğrulama (TOTP)</h2>
+  {% if message %}<p class="alert">{{ message }}</p>{% endif %}
+  {% if totp_enabled %}
+    <p>Etkin. Giriş için kimlik doğrulayıcı uygulamadaki kod gerekir.</p>
+  {% elif totp_pending %}
+    <p>Kimlik doğrulayıcı uygulamanıza bu anahtarı ekleyin, ardından üretilen kodu girin.</p>
+    <p><code>{{ totp_pending.secret }}</code></p>
+    <p class="muted small">URI: <code>{{ totp_pending.uri }}</code></p>
+    <form method="post" action="/settings/totp/confirm">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>Kod <input name="code" inputmode="numeric" maxlength="8" required></label>
+      <button>Doğrula ve etkinleştir</button>
+    </form>
+  {% else %}
+    <p class="muted">Kapalı. Etkinleştirmeniz önerilir.</p>
+    <form method="post" action="/settings/totp/start">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><button>Kurulumu başlat</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}
