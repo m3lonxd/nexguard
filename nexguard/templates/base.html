@@ -21,7 +21,7 @@
   <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Çıkış ({{ user }})</button></form>
 </header>
 {% endif %}
-<main>{% block content %}{% endblock %}</main>
+<main>{% if flash %}<p class="flash">{{ flash }}</p>{% endif %}{% block content %}{% endblock %}</main>
 <footer>NexGuard {{ version }}</footer>
 </body>
 </html>

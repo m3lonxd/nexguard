@@ -29,3 +29,20 @@ code{word-break:break-all}
 main>h2{margin:20px 0 8px}
 dd{overflow-wrap:anywhere;word-break:normal}
 @media (max-width:600px){.top nav{order:3;flex-basis:100%}}
+html{background:var(--bg);color-scheme:light dark}body{min-height:100vh}
+.flash{padding:8px 12px;border-radius:6px;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--fg)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.grow{flex:1;min-width:200px;margin:0}
+.score{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;border:4px solid var(--ok)}
+.score span{font-size:24px;font-weight:700;line-height:1}.score small{color:var(--muted)}
+.score.gC{border-color:var(--warn)}.score.gD,.score.gF{border-color:var(--bad)}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;background:var(--line);color:var(--fg)}
+.badge.high{background:color-mix(in srgb,var(--bad) 22%,transparent);color:var(--bad)}
+.badge.medium,.badge.low{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+.badge.ok{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ok)}
+.finding{border-left:4px solid var(--line)}.finding.high{border-left-color:var(--bad)}.finding.medium{border-left-color:var(--warn)}
+.finding p{margin:6px 0 0}
+.banner.l0{border-left:4px solid var(--ok)}.banner.l1{border-left:4px solid var(--warn)}.banner.l2{border-left:4px solid var(--bad)}
+.spark{width:100%;height:50px}.spark polyline{fill:none;stroke:var(--accent);stroke-width:2}
+pre{overflow:auto;background:var(--bg);padding:10px;border-radius:6px;font-size:12px}
+details summary{cursor:pointer}td input{margin:0;width:110px}
+a{color:var(--accent)}

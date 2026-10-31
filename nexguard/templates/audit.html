@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Denetim - NexGuard{% endblock %}
+{% block content %}
+<h1>Denetim</h1>
+<p class="muted">{{ mod.description }}</p>
+<div class="card row">
+  {% if data.result %}
+    <div class="score g{{ data.result.grade }}"><span>{{ data.result.score }}</span><small>{{ data.result.grade }}</small></div>
+    <div class="grow">
+      <p class="muted small">Son tarama: {{ data.result.ts }}</p>
+      <p>{% for sev, lbl in [('high','Yüksek'),('medium','Orta'),('low','Düşük'),('info','Bilgi'),('ok','Geçti')] %}<span class="badge {{ sev }}">{{ lbl }} {{ data.counts.get(sev, 0) }}</span> {% endfor %}</p>
+    </div>
+  {% else %}
+    <p class="grow muted">Henüz denetim çalıştırılmadı.</p>
+  {% endif %}
+  <form method="post" action="/m/audit/run"><input type="hidden" name="csrf" value="{{ csrf }}"><button>{{ "Yeniden tara" if data.result else "Denetimi çalıştır" }}</button></form>
+</div>
+{% if data.result %}
+{% for f in data.result.findings if f.severity != 'ok' %}
+<div class="card finding {{ f.severity }}">
+  <div><span class="badge {{ f.severity }}">{{ {'high':'Yüksek','medium':'Orta','low':'Düşük','info':'Bilgi'}[f.severity] }}</span> <strong>{{ f.title }}</strong></div>
+  {% if f.detail %}<p class="muted">{{ f.detail }}</p>{% endif %}
+  {% if f.fix %}<p class="small">Öneri: <code>{{ f.fix }}</code></p>{% endif %}
+</div>
+{% endfor %}
+<details class="card"><summary>Geçen kontroller ({{ data.counts.get('ok', 0) }})</summary>
+  <ul>{% for f in data.result.findings if f.severity == 'ok' %}<li>{{ f.title }}</li>{% endfor %}</ul>
+</details>
+<p class="muted small">Panel ayrıcalıksız çalıştığı için firewall kuralları ve /etc/shadow gibi root gerektiren kontroller kısmen doğrulanamaz; bunlar "Bilgi" olarak işaretlenir. Hiçbir düzeltme otomatik uygulanmaz.</p>
+{% endif %}
+{% endblock %}

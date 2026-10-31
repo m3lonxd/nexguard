@@ -55,3 +55,21 @@ def log_event(module: str, level: str, message: str) -> None:
             "INSERT INTO events (module, level, message) VALUES (?, ?, ?)",
             (module, level, message),
         )
+
+
+def get_setting(key: str, default: str | None = None) -> str | None:
+    with session() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    with session() as conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))
+
+
+def delete_setting(key: str) -> None:
+    with session() as conn:
+        conn.execute("DELETE FROM settings WHERE key = ?", (key,))
