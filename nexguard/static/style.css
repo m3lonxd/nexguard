@@ -26,3 +26,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 .lvl{font-weight:600}.lvl.error{color:var(--bad)}.lvl.warning{color:var(--warn)}.lvl.info{color:var(--ok)}
 code{word-break:break-all}
 @media (max-width:600px){.top{gap:8px}.card{padding:12px}}
+main>h2{margin:20px 0 8px}
+dd{overflow-wrap:anywhere;word-break:normal}
+@media (max-width:600px){.top nav{order:3;flex-basis:100%}}
