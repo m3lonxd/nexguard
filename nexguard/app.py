@@ -1,12 +1,13 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Form, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import __version__, config, db, security, sysinfo
+from . import __version__, config, db, notify, security, sysinfo
 from .modules import load_modules
 
 BASE = Path(__file__).parent
@@ -26,9 +27,20 @@ SECURITY_HEADERS = {
 }
 
 
-def create_app(limiter: security.LoginLimiter | None = None) -> FastAPI:
+def create_app(limiter: security.LoginLimiter | None = None, background: bool = True) -> FastAPI:
     db.init()
-    app = FastAPI(title="NexGuard", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
+    modules = load_modules()
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        if background:
+            for m in modules:
+                if m.on_start:
+                    m.on_start()
+        yield
+
+    app = FastAPI(title="NexGuard", version=__version__, docs_url=None, redoc_url=None,
+                  openapi_url=None, lifespan=lifespan)
     app.add_middleware(
         SessionMiddleware,
         secret_key=config.get_secret_key(),
@@ -38,7 +50,6 @@ def create_app(limiter: security.LoginLimiter | None = None) -> FastAPI:
     )
     app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
     limiter = limiter or security.LoginLimiter()
-    modules = load_modules()
 
     @app.middleware("http")
     async def add_headers(request: Request, call_next):
@@ -58,11 +69,25 @@ def create_app(limiter: security.LoginLimiter | None = None) -> FastAPI:
         ctx.update(
             request=request, modules=modules, csrf=csrf_token(request),
             user=request.session.get("user"), version=__version__,
+            flash=request.session.pop("flash", None),
         )
         return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
     def logged_in(request: Request) -> bool:
         return bool(request.session.get("user"))
+
+    def require_user(request: Request) -> None:
+        if not logged_in(request):
+            raise HTTPException(status_code=303, headers={"Location": "/login"})
+
+    def require_csrf(request: Request, csrf: str = Form("")) -> None:
+        if not security.check_csrf(request.session.get("csrf"), csrf):
+            raise HTTPException(status_code=400, detail="CSRF doğrulaması başarısız")
+
+    guarded = [Depends(require_user), Depends(require_csrf)]
+    for m in modules:
+        if m.router:
+            app.include_router(m.router, prefix=f"/m/{m.slug}", dependencies=guarded)
 
     def client_ip(request: Request) -> str:
         return request.client.host if request.client else "unknown"
@@ -119,7 +144,7 @@ def create_app(limiter: security.LoginLimiter | None = None) -> FastAPI:
         mod = next((m for m in modules if m.slug == slug), None)
         if mod is None:
             return render(request, "notfound.html", 404, page="")
-        return render(request, "module.html", mod=mod, data=mod.collect(), page=slug)
+        return render(request, mod.template, mod=mod, data=mod.collect(), page=slug)
 
     @app.get("/settings", response_class=HTMLResponse)
     async def settings(request: Request):
@@ -131,7 +156,8 @@ def create_app(limiter: security.LoginLimiter | None = None) -> FastAPI:
         with db.session() as conn:
             row = conn.execute("SELECT totp_secret FROM users WHERE username = ?",
                                (request.session["user"],)).fetchone()
-        return {"totp_enabled": bool(row and row["totp_secret"]), "totp_pending": None, "message": None}
+        return {"totp_enabled": bool(row and row["totp_secret"]), "totp_pending": None, "message": None,
+                "notify": notify.status()}
 
     @app.post("/settings/totp/start", response_class=HTMLResponse)
     async def totp_start(request: Request, csrf: str = Form("")):
@@ -165,5 +191,36 @@ def create_app(limiter: security.LoginLimiter | None = None) -> FastAPI:
             ctx["totp_pending"] = {"secret": secret, "uri": security.totp_uri(secret, request.session["user"])}
         ctx["message"] = "Kod hatalı, tekrar deneyin."
         return render(request, "settings.html", 400, page="settings", **ctx)
+
+    @app.post("/settings/notify", dependencies=guarded)
+    async def notify_save(request: Request, telegram_token: str = Form(""), telegram_chat: str = Form(""),
+                          webhook_url: str = Form(""), clear: str = Form("")):
+        if clear:
+            for key in notify.KEYS:
+                db.delete_setting(key)
+            request.session["flash"] = "Bildirim kanalları temizlendi."
+            return RedirectResponse("/settings", status_code=303)
+        token, chat, hook = telegram_token.strip(), telegram_chat.strip(), webhook_url.strip()
+        err = notify.validate(token, chat, hook)
+        if err:
+            request.session["flash"] = err
+            return RedirectResponse("/settings", status_code=303)
+        # Boş bırakılan alan mevcut değeri korur (gizli anahtar geri gösterilmez).
+        for key, val in zip(notify.KEYS, (token, chat, hook)):
+            if val:
+                db.set_setting(key, val)
+        db.log_event("core", "info", "Bildirim ayarları güncellendi")
+        request.session["flash"] = "Bildirim ayarları kaydedildi."
+        return RedirectResponse("/settings", status_code=303)
+
+    @app.post("/settings/notify/test", dependencies=guarded)
+    def notify_test(request: Request):
+        if not notify.status()["any"]:
+            request.session["flash"] = "Önce bir bildirim kanalı ekleyin."
+        else:
+            res = notify.send("NexGuard test bildirimi.")
+            request.session["flash"] = "; ".join(
+                f"{n}: {'tamam' if ok else 'hata ' + err}" for n, ok, err in res)
+        return RedirectResponse("/settings", status_code=303)
 
     return app

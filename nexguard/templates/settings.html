@@ -23,4 +23,20 @@
     </form>
   {% endif %}
 </div>
+<div class="card narrow-ish">
+  <h2>Bildirim kanalları</h2>
+  <p class="muted">DDoS ve diğer uyarılar buraya gider. Anahtarlar sunucuda saklanır, buradan geri gösterilmez; boş bırakılan alan mevcut değeri korur.</p>
+  <p>Telegram: <strong>{{ "ayarlı" if notify.telegram else "yok" }}</strong> · Webhook: <strong>{{ "ayarlı" if notify.webhook else "yok" }}</strong></p>
+  <form method="post" action="/settings/notify">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Telegram bot anahtarı <input name="telegram_token" type="password" autocomplete="off" placeholder="123456:ABC..."></label>
+    <label>Telegram sohbet kimliği <input name="telegram_chat" autocomplete="off" placeholder="123456789 veya @kanal"></label>
+    <label>Webhook adresi (Slack, Discord, özel) <input name="webhook_url" type="url" autocomplete="off" placeholder="https://..."></label>
+    <button>Kaydet</button>
+  </form>
+  <div class="row">
+    <form method="post" action="/settings/notify/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Test gönder</button></form>
+    <form method="post" action="/settings/notify"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="clear" value="1"><button class="ghost">Tümünü temizle</button></form>
+  </div>
+</div>
 {% endblock %}

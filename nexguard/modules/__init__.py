@@ -8,6 +8,8 @@ import pkgutil
 from dataclasses import dataclass, field
 from typing import Callable
 
+from fastapi import APIRouter
+
 from .. import db
 
 
@@ -19,6 +21,11 @@ class Module:
     # collect() panelin gösterebileceği düz bir sözlük döndürür.
     collect: Callable[[], dict] = field(default=lambda: {})
     order: int = 100
+    template: str = "module.html"
+    # POST uçları; app bunları giriş + CSRF zorunluluğuyla /m/<slug>/ altına bağlar.
+    router: APIRouter | None = None
+    # Uygulama başlarken bir kez çağrılır (arka plan iş parçacığı başlatmak için).
+    on_start: Callable[[], None] | None = None
 
 
 def load_modules() -> list[Module]:

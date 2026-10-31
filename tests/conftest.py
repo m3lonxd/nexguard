@@ -15,7 +15,7 @@ def env(tmp_path, monkeypatch):
                      ("admin", security.hash_password("correct horse battery")))
     from nexguard.app import create_app
     limiter = security.LoginLimiter(max_fails=3, window=300)
-    return TestClient(create_app(limiter), follow_redirects=False), limiter
+    return TestClient(create_app(limiter, background=False), follow_redirects=False), limiter
 
 
 def csrf_from(client, path="/login"):
