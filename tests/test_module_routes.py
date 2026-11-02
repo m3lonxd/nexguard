@@ -85,7 +85,7 @@ def test_live_map_page_and_api(env):
     r = client.get("/api/live")
     assert r.status_code == 200
     body = r.json()
-    assert set(body) >= {"level", "countries", "sources", "total", "installed"}
+    assert set(body) >= {"level", "countries", "sources", "total", "installed", "state_label", "why", "running", "pressure", "pressure_text"}
     assert r.headers["cache-control"] == "no-store"
     assert ddos.monitor is not None
     home = client.get("/")

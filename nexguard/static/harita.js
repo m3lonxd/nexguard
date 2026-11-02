@@ -25,6 +25,8 @@
       document.getElementById("band-facts").textContent = p.total + " bağlantı · " + p.countries.length + " ülke";
       document.getElementById("band-why").textContent = p.why;
       document.getElementById("live-ts").textContent = p.ts;
+      document.getElementById("gauge-fill").style.width = Math.min(100, p.pressure) + "%";
+      document.getElementById("gauge-text").textContent = p.pressure_text;
     }
     svg.setAttribute("data-level", p.running ? p.level : 0);
     var vd = document.getElementById("live-verdict");
@@ -64,6 +66,8 @@
       dots.appendChild(g);
     });
 
+    drawCallouts(p.countries);
+
     // tablolar
     var tc = document.getElementById("tb-countries");
     if (!tc) return;
@@ -80,6 +84,45 @@
         ts.appendChild(rowOf([el("td", null, s.ip), el("td", null, String(s.n)), el("td", null, s.country), el("td", null, s.flags.length ? s.flags.join(", ") : "-")]));
       });
     }
+  }
+  // Analist notu: en çok bağlanan ülkelere ince çizgili etiket. Ekran boyutu ne olursa olsun yazı 12px kalır.
+  function drawCallouts(countries) {
+    var layer = document.getElementById("callouts");
+    if (!layer) return;
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    var width = svg.getBoundingClientRect().width;
+    if (!width) return;
+    var unit = 1000 / width, narrow = width < 560;
+    var fs = 12 * unit, h = fs * 1.7, padX = fs * 0.6;
+    var list = countries.filter(function (c) { return c.x !== null; }).slice(0, narrow ? 3 : 5);
+    var items = list.map(function (c) {
+      var name = narrow || c.country.length > 16 ? c.cc : c.country;
+      var flag = c.flag ? c.flag.split("/")[0] : "";
+      var text = name + " " + c.n + (flag && !narrow ? " · " + flag : "");
+      var g = document.createElementNS(NS, "g"); g.setAttribute("class", "callout");
+      var line = document.createElementNS(NS, "polyline");
+      var rect = document.createElementNS(NS, "rect");
+      var t = document.createElementNS(NS, "text");
+      t.setAttribute("font-size", fs); t.textContent = text;
+      g.appendChild(line); g.appendChild(rect); g.appendChild(t); layer.appendChild(g);
+      var w = t.getBBox().width + padX * 2;
+      return {c: c, line: line, rect: rect, t: t, w: w, left: c.x > 640};
+    });
+    [true, false].forEach(function (left) {
+      var side = items.filter(function (i) { return i.left === left; }).sort(function (a, b) { return a.c.y - b.c.y; });
+      var floor = 14;
+      side.forEach(function (i) {
+        var y = Math.max(i.c.y - 30 * unit - h, floor);
+        floor = y + h + 4 * unit;
+        var off = 34 * unit;
+        var x = left ? i.c.x - off - i.w : i.c.x + off;
+        x = Math.max(2, Math.min(998 - i.w, x));
+        i.rect.setAttribute("x", x); i.rect.setAttribute("y", y); i.rect.setAttribute("width", i.w); i.rect.setAttribute("height", h);
+        i.t.setAttribute("x", x + padX); i.t.setAttribute("y", y + h * 0.7);
+        var edge = left ? x + i.w : x, mid = y + h / 2;
+        i.line.setAttribute("points", i.c.x + "," + i.c.y + " " + (i.c.x + (edge - i.c.x) * 0.45) + "," + mid + " " + edge + "," + mid);
+      });
+    });
   }
   function rowOf(cells) { var tr = document.createElement("tr"); cells.forEach(function (c) { tr.appendChild(c); }); return tr; }
 

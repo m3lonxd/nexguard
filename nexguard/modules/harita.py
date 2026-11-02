@@ -6,6 +6,7 @@ saldırıların kaynağı bağlantı tablosunda görünmez; harita yalnızca TCP
 """
 import json
 import time
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
@@ -34,17 +35,29 @@ def live_payload() -> dict:
     out = {"ts": time.strftime("%H:%M:%S"), "level": level, "level_name": ddos.LEVELS[level],
            "running": running, "state_label": label, "why": why,
            "installed": geoip.status()["installed"], "total": 0, "anon_pct": 0,
-           "countries": [], "sources": [], "verdict": ""}
+           "countries": [], "sources": [], "verdict": "",
+           "pressure": 0, "pressure_text": "Ölçüm yok"}
+    if last:
+        th = ddos.load_thresholds()
+        values = {"syn_recv": last.syn_recv, "conn_per_ip": last.max_per_ip, "rx_pps": last.rx_pps, "rx_mbps": last.rx_mbps}
+        name = max(values, key=lambda n: values[n] / th[n][1])
+        out["pressure"] = round(100 * values[name] / th[name][1])
+        out["pressure_text"] = f"Saldırı eşiğinin %{out['pressure']}'i · {ddos.LABELS[name]}"
     if not last or not last.per_ip:
         return out
     geo = geoip.summarize(last.per_ip[:50])
     out["total"] = geo["total"]
     out["anon_pct"] = geo["anon_pct"]
     out["verdict"] = geo["verdict"]
+    flags: dict[str, Counter] = {}
+    for src in geo["sources"]:
+        for f in src["flags"]:
+            flags.setdefault(src["cc"], Counter())[f] += src["n"]
     for c in geo["countries"]:
         xy = cent.get(c["cc"])
+        top_flag = flags[c["cc"]].most_common(1)[0][0] if c["cc"] in flags else ""
         out["countries"].append({"cc": c["cc"], "country": c["country"], "n": c["n"], "ips": c["ips"],
-                                 "anon": c["anon"], "x": xy[0] if xy else None, "y": xy[1] if xy else None})
+                                 "anon": c["anon"], "flag": top_flag, "x": xy[0] if xy else None, "y": xy[1] if xy else None})
     out["sources"] = [{"ip": s["ip"], "n": s["n"], "cc": s["cc"], "country": s["country"],
                        "org": s["org"], "flags": s["flags"]} for s in geo["sources"][:10]]
     return out
