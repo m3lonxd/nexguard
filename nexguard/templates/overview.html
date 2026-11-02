@@ -2,22 +2,63 @@
 {% block title %}Genel Bakış - NexGuard{% endblock %}
 {% block content %}
 <h1 class="skip">Genel Bakış</h1>
-{% include "_band.html" %}
-<div class="stage">
-  <div class="stage-map">{% include "_map.html" %}</div>
-  <aside class="stage-rail">
-    <div class="head-row"><h2>Bağlantı kaynakları</h2><span class="badge" id="live-state">bağlanıyor</span></div>
-    <p class="verdict" id="live-verdict">{{ live.verdict or "Veri bekleniyor." }}</p>
-    <div class="tscroll"><table><thead><tr><th>Ülke</th><th>IP</th><th>Bağl.</th><th>Aracı</th></tr></thead><tbody id="tb-countries" data-limit="7"><tr><td colspan="4" class="muted">Veri bekleniyor.</td></tr></tbody></table></div>
-    <p><a class="link-btn" href="/m/harita">Tüm kaynaklar</a></p>
-  </aside>
+<div class="dash">
+  <div class="dash-left">
+    <section class="tile-card">
+      <div class="head-row"><h2>Ağ trafiği</h2><span class="chip">Son 3 dakika</span></div>
+      <svg id="pps-line" viewBox="0 0 360 110" role="img" aria-label="Gelen paket hızı grafiği"></svg>
+      <div class="foot-row">
+        <div><b id="v-pps">0</b><span class="note">paket/sn şu an</span></div>
+        <div><b id="v-attack">-</b><span class="note">saldırı eşiği</span></div>
+      </div>
+    </section>
+    <div class="dash-pair">
+      <section class="tile-card">
+        <h2>Bellek</h2>
+        <svg class="ring" id="mem-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="trk" cx="50" cy="50" r="42"/><circle class="val" cx="50" cy="50" r="42" pathLength="100"/></svg>
+        <div class="big"><span id="v-mem" data-init="{{ mem_pct }}">0</span><small>%</small></div>
+        <div class="note">{{ info.mem_used | hb }} / {{ info.mem_total | hb }}</div>
+      </section>
+      <section class="tile-card">
+        <h2>Gelen bant</h2>
+        <div class="vbars" id="mbps-bars" aria-hidden="true"></div>
+        <div class="big"><span id="v-mbps">0</span><small>Mbit/sn</small></div>
+        <div class="note">Son ölçümler</div>
+      </section>
+    </div>
+    <section class="tile-card">
+      <div class="head-row"><h2>Uyarı ve hata</h2><span class="chip">Son 7 gün</span></div>
+      <div class="big"><span id="v-week">0</span><small>olay</small></div>
+      <div class="week" id="week" aria-hidden="true"></div>
+    </section>
+  </div>
+  <section class="map-card l{{ live.level if live.running else 'x' }}" id="map-card">
+    <div class="map-top">
+      <span class="state-pill l{{ live.level if live.running else 'x' }}" id="state-pill" role="status" aria-live="polite">{{ live.state_label }}</span>
+      <span class="map-why" id="map-why">{{ live.why }}</span>
+      <span class="chip" id="live-state">bağlanıyor</span>
+    </div>
+    <div class="map-wrap" id="map-wrap"><div class="map-box">{% include "_map.html" %}</div></div>
+    <div class="float">
+      <div class="head-row"><h2>Bağlantı kaynakları</h2><a class="link-btn" href="/m/harita">Tüm kaynaklar</a></div>
+      <p id="live-verdict">{{ live.verdict or "Veri bekleniyor." }}</p>
+      <div class="tiles">
+        <div class="t o"><span>Bağlantı</span><b id="t-total">0</b><small>TCP</small></div>
+        <div class="t v"><span>Ülke</span><b id="t-countries">0</b><small>kaynak</small></div>
+        <div class="t a"><span>Aracı ağ</span><b id="t-anon">0</b><small>%</small></div>
+        <div class="t e"><span>Paket</span><b id="t-pps">0</b><small>paket/sn</small></div>
+        <div class="t g"><span>SYN_RECV</span><b id="t-syn">0</b><small>yarı açık</small></div>
+      </div>
+    </div>
+  </section>
 </div>
-<dl class="readouts">
-  <div class="{{ 'warn' if info.load[0] > info.cpus }}"><dt>Yük (1 dk)</dt><dd>{{ info.load[0] }}<small>{{ info.cpus }} çekirdek · 15 dk {{ info.load[2] }}</small></dd></div>
-  <div class="{{ 'bad' if mem_pct >= 90 else 'warn' if mem_pct >= 80 }}"><dt>Bellek{% if mem_pct >= 80 %} yüksek{% endif %}</dt><dd>%{{ mem_pct }}<small>{{ info.mem_used | hb }} / {{ info.mem_total | hb }}</small></dd></div>
-  <div class="{{ 'bad' if disk_pct >= 95 else 'warn' if disk_pct >= 85 }}"><dt>Disk (/){% if disk_pct >= 85 %} dolu{% endif %}</dt><dd>%{{ disk_pct }}<small>{{ info.disk_used | hb }} / {{ info.disk_total | hb }}</small></dd></div>
-  <div><dt>Çalışma süresi</dt><dd>{{ info.uptime_seconds | uptime }}<small>{{ info.hostname }} · {{ info.kernel }}</small></dd></div>
-</dl>
+<div class="split lower3">
+  <dl class="readouts boxed">
+    <div class="{{ 'warn' if info.load[0] > info.cpus }}"><dt>Yük (1 dk)</dt><dd>{{ info.load[0] }}<small>{{ info.cpus }} çekirdek</small></dd></div>
+    <div class="{{ 'bad' if disk_pct >= 95 else 'warn' if disk_pct >= 85 }}"><dt>Disk (/)</dt><dd>%{{ disk_pct }}<small>{{ info.disk_used | hb }} / {{ info.disk_total | hb }}</small></dd></div>
+    <div><dt>Çalışma süresi</dt><dd>{{ info.uptime_seconds | uptime }}<small>{{ info.hostname }}</small></dd></div>
+  </dl>
+</div>
 <div class="split">
   <section>
     <h2>Modüller</h2>
