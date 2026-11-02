@@ -5,6 +5,7 @@ eşik aşımını 2 ardışık örnekte doğrulayıp olay günlüğüne yazar ve
 Panel ayrıcalıksız çalıştığı için engelleme uygulamaz; hazır nftables kuralı ve sysctl önerisi sunar.
 """
 import ipaddress
+import json
 import socket
 import threading
 import time
@@ -14,7 +15,7 @@ from dataclasses import dataclass, field
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
-from .. import db, notify
+from .. import charts, db, geoip, notify
 from . import Module
 
 INTERVAL = 5
@@ -90,6 +91,7 @@ class Sample:
     syn_recv: int = 0
     established: int = 0
     top_ips: list = field(default_factory=list)
+    per_ip: list = field(default_factory=list)  # (ip, bağlantı) ilk 100
     conntrack: tuple | None = None
 
     @property
@@ -136,6 +138,8 @@ class Monitor:
         self._last_notify = 0.0
         self._notified_level = 0
         self._lock = threading.Lock()
+        self.cur: dict | None = None
+        self._ticks = 0
 
     @staticmethod
     def _async_notify(text: str) -> None:
@@ -161,9 +165,11 @@ class Monitor:
                 if _external(ip):
                     per_ip[ip] += 1
         s.top_ips = per_ip.most_common(5)
+        s.per_ip = per_ip.most_common(100)
         with self._lock:
             self.history.append(s)
             self._transition(s, th or load_thresholds())
+            self._track(s)
         return s
 
     def _transition(self, s: Sample, th: dict) -> None:
@@ -190,11 +196,45 @@ class Monitor:
             self._rise = self._calm = 0
             self.reasons = reasons
 
+    def _track(self, s: Sample) -> None:
+        """Saldırı kaydı: seviye >0 olduğu sürece tepe değerleri ve kaynak IP'leri biriktirir."""
+        if self.level > 0:
+            if self.cur is None:
+                with db.session() as conn:
+                    cur = conn.execute("INSERT INTO attacks (started, peak_level) VALUES (?, ?)",
+                                       (time.strftime("%Y-%m-%d %H:%M:%S"), self.level))
+                self.cur = {"id": cur.lastrowid, "ips": {}, "pps": 0.0, "mbps": 0.0, "syn": 0, "level": 0}
+            c = self.cur
+            c.update(pps=max(c["pps"], s.rx_pps), mbps=max(c["mbps"], s.rx_mbps),
+                     syn=max(c["syn"], s.syn_recv), level=max(c["level"], self.level))
+            for ip, n in s.per_ip:
+                c["ips"][ip] = max(c["ips"].get(ip, 0), n)
+            if self._ticks % 12 == 0:
+                self._save_attack(ended=False)
+            self._ticks += 1
+        elif self.cur is not None:
+            self._save_attack(ended=True)
+            self.cur, self._ticks = None, 0
+
+    def _save_attack(self, ended: bool) -> None:
+        c = self.cur
+        top = sorted(c["ips"].items(), key=lambda kv: -kv[1])[:30]
+        summary = json.dumps(geoip.summarize(top), ensure_ascii=False)
+        with db.session() as conn:
+            conn.execute(
+                "UPDATE attacks SET ended = ?, peak_level = ?, peak_pps = ?, peak_mbps = ?, peak_syn = ?, summary = ? WHERE id = ?",
+                (time.strftime("%Y-%m-%d %H:%M:%S") if ended else None, c["level"], c["pps"], c["mbps"], c["syn"],
+                 summary, c["id"]))
+
     def _alert(self, s: Sample, rising: bool, was: int = 0) -> None:
         name = LEVELS[self.level]
         if rising:
             top = ", ".join(f"{ip} ({n})" for ip, n in s.top_ips[:3]) or "-"
+            geo = geoip.summarize(s.per_ip[:50]) if s.per_ip else None
             msg = f"NexGuard: DDoS seviyesi {name.upper()}. " + "; ".join(self.reasons) + f". En çok bağlanan: {top}"
+            if geo:
+                cs = ", ".join(f"{e['country']} ({e['n']})" for e in geo["countries"][:3])
+                msg += f". Ülkeler: {cs}. {geo['verdict']}"
             db.log_event("ddos", "error" if self.level == 2 else "warning", msg)
             if self.level > self._notified_level or s.ts - self._last_notify >= COOLDOWN:
                 self.notifier(msg)
