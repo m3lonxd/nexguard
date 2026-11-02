@@ -893,3 +893,95 @@ th { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600;
 .brand .word small, .panel-head h2, .login-brand small { text-transform: none; letter-spacing: 0; }
 .panel-head h2 { font-size: 14px; font-weight: 600; color: var(--fg); }
 .brand .word small { font-size: 11.5px; }
+
+/* === Renk katmanı ===================================================
+   Roller: soğuk mavi-gri yüzeyler, koyu lacivert kenar çubuğu (yön bulma),
+   turkuaz eylem rengi, durum renkleri yalnızca durum kartı ve bantlarda. */
+:root {
+  --bg: oklch(0.962 0.012 248);
+  --surface: oklch(0.995 0.004 248);
+  --surface-2: oklch(0.93 0.016 248);
+  --hover: oklch(0.945 0.016 248);
+  --fg: oklch(0.22 0.03 255);
+  --muted: oklch(0.47 0.03 255);
+  --line: oklch(0.87 0.02 250);
+  --accent: oklch(0.50 0.11 188);
+  --accent-fg: #ffffff;
+  --ok: oklch(0.50 0.13 150);
+  --warn: oklch(0.52 0.12 70);
+  --bad: oklch(0.50 0.19 25);
+  --c1: oklch(0.55 0.11 188);
+  --c2: oklch(0.52 0.15 255);
+  --c3: oklch(0.52 0.15 305);
+  --side: oklch(0.255 0.05 255);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: oklch(0.175 0.028 255);
+    --surface: oklch(0.225 0.032 255);
+    --surface-2: oklch(0.275 0.034 255);
+    --hover: oklch(0.255 0.034 255);
+    --fg: oklch(0.945 0.012 250);
+    --muted: oklch(0.72 0.03 250);
+    --line: oklch(0.32 0.034 255);
+    --accent: oklch(0.80 0.13 188);
+    --accent-fg: oklch(0.2 0.04 190);
+    --ok: oklch(0.78 0.16 150);
+    --warn: oklch(0.82 0.14 80);
+    --bad: oklch(0.72 0.17 25);
+    --c1: oklch(0.80 0.13 188);
+    --c2: oklch(0.74 0.12 255);
+    --c3: oklch(0.74 0.13 305);
+    --side: oklch(0.135 0.03 258);
+  }
+}
+
+/* kenar çubuğu: her iki temada koyu lacivert, kendi yazı renkleriyle */
+.side {
+  --fg: oklch(0.96 0.01 250);
+  --muted: oklch(0.76 0.03 250);
+  --line: oklch(0.36 0.045 255);
+  --hover: oklch(0.31 0.05 255);
+  --accent: oklch(0.82 0.13 188);
+  background: var(--side);
+  border-right: 0;
+  color: var(--fg);
+}
+.nav a { color: var(--muted); }
+.nav a:hover { background: var(--hover); color: var(--fg); }
+.nav a.on { background: color-mix(in oklch, var(--accent) 20%, transparent); color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.nav a.on svg { color: var(--accent); }
+.brand .logo { background: oklch(0.62 0.12 188); }
+.side-foot { border-top: 1px solid var(--line); }
+.side-foot .icon { color: var(--muted); border-color: var(--line); background: transparent; }
+
+/* eylem: birincil düğme ve bağlantılar */
+button:not(.ghost):not(.icon), .btn:not(.ghost) { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+button:not(.ghost):not(.icon):hover, .btn:not(.ghost):hover { filter: brightness(1.08); }
+.link-btn { font-weight: 600; }
+
+/* durum kartları: durum kendi rengiyle tonlanır */
+.summary { border-color: var(--line); }
+.summary.ok { background: color-mix(in oklch, var(--ok) 9%, var(--surface)); border-color: color-mix(in oklch, var(--ok) 35%, var(--line)); }
+.summary.warn { background: color-mix(in oklch, var(--warn) 11%, var(--surface)); border-color: color-mix(in oklch, var(--warn) 40%, var(--line)); }
+.summary.bad { background: color-mix(in oklch, var(--bad) 11%, var(--surface)); border-color: color-mix(in oklch, var(--bad) 45%, var(--line)); }
+.summary.idle { background: var(--surface); }
+.banner.l0 { background: color-mix(in oklch, var(--ok) 9%, var(--surface)); }
+.banner.l1 { background: color-mix(in oklch, var(--warn) 12%, var(--surface)); }
+.banner.l2 { background: color-mix(in oklch, var(--bad) 12%, var(--surface)); }
+
+/* metrik kartları: değerin üstünde ince renk şeridi, her metrik kendi tonunda */
+.grid-4 > .stat { border-top: 3px solid var(--c1); }
+.grid-4 > .stat:nth-child(2) { border-top-color: var(--c2); }
+.grid-4 > .stat:nth-child(3) { border-top-color: var(--c3); }
+.grid-4 > .stat:nth-child(4) { border-top-color: var(--warn); }
+
+/* harita ve grafikler */
+#worldmap .land path { fill: color-mix(in oklch, var(--c2) 14%, var(--surface-2)); stroke: color-mix(in oklch, var(--c2) 22%, var(--line)); }
+.panel-head h2, .section-title { color: var(--fg); }
+a { color: var(--accent); }
+.brand { color: var(--fg); }
+@media (max-width: 880px) { .nav a.on { box-shadow: inset 0 -2px 0 var(--accent); background: transparent; } }
+.summary.warn { background: color-mix(in oklch, var(--warn) 18%, var(--surface)); }
+.summary.bad { background: color-mix(in oklch, var(--bad) 16%, var(--surface)); }
+.avatar { background: color-mix(in oklch, var(--accent) 28%, transparent); color: var(--fg); border-color: transparent; }
