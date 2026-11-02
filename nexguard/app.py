@@ -1,4 +1,6 @@
+import re
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -25,6 +27,24 @@ SECURITY_HEADERS = {
     ),
     "Cache-Control": "no-store",
 }
+
+
+def group_events(rows, limit: int = 8) -> list[dict]:
+    """Art arda gelen aynı olayları (IP/sayı ayrıntısıyla birlikte) tek satırda toplar; zamanı yerel saate çevirir."""
+    out: list[dict] = []
+    for r in rows:
+        try:
+            local = datetime.strptime(r["ts"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).astimezone()
+            when = local.strftime("%d.%m %H:%M")
+        except (ValueError, TypeError):
+            when = str(r["ts"])
+        key = (r["module"], r["level"], re.sub(r"\d+", "#", r["message"]))
+        if out and out[-1]["key"] == key:
+            out[-1]["count"] += 1
+            continue
+        out.append({"key": key, "ts": when, "module": r["module"], "level": r["level"],
+                    "message": r["message"], "count": 1})
+    return out[:limit]
 
 
 def create_app(limiter: security.LoginLimiter | None = None, background: bool = True) -> FastAPI:
@@ -134,7 +154,8 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
         if not logged_in(request):
             return RedirectResponse("/login", status_code=303)
         with db.session() as conn:
-            events = conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT 12").fetchall()
+            events = conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT 40").fetchall()
+            events = group_events(events)
             warn24 = conn.execute(
                 "SELECT COUNT(*) FROM events WHERE level IN ('warning', 'error') "
                 "AND ts >= datetime('now', '-1 day')").fetchone()[0]

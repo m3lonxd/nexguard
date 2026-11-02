@@ -13,10 +13,15 @@
   {% for s in summaries %}
   <section class="panel summary {{ s.status }}">
     <div class="summary-main">
-      <span class="eyebrow">{{ s.title }}</span>
+      <span class="eyebrow">{{ s.title }}<span class="state-tag {{ s.status }}">{{ {'ok':'Normal','warn':'Uyarı','bad':'Tehlike','idle':'Beklemede'}.get(s.status, '') }}</span></span>
       <strong class="summary-head">{{ s.headline }}</strong>
       <p>{{ s.detail }}</p>
-      <a class="link-btn" href="/m/{{ s.slug }}">Modülü aç →</a>
+      <div class="summary-actions">
+        {% if s.slug == 'audit' and s.status == 'idle' %}
+        <form method="post" action="/m/audit/run"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Denetimi çalıştır</button></form>
+        {% endif %}
+        <a class="link-btn" href="/m/{{ s.slug }}">{{ s.title }} sayfası →</a>
+      </div>
     </div>
     <div class="visual">{{ s.visual }}</div>
   </section>
@@ -26,13 +31,13 @@
 
 <h2 class="section-title">Sistem</h2>
 <div class="grid grid-4">
-  <div class="panel stat">
-    <span class="eyebrow">Yük (1 dk)</span>
+  <div class="panel stat{{ ' warn' if info.load[0] > info.cpus }}">
+    <span class="eyebrow">Yük (1 dk){% if info.load[0] > info.cpus %}<span class="state-tag warn">Yüksek</span>{% endif %}</span>
     <p class="stat-value">{{ info.load[0] }}</p>
     <p class="stat-sub">5 dk {{ info.load[1] }} · 15 dk {{ info.load[2] }} · {{ info.cpus }} çekirdek</p>
   </div>
-  <div class="panel stat">
-    <span class="eyebrow">Bellek</span>
+  <div class="panel stat{{ ' warn' if mem_pct >= 80 }}">
+    <span class="eyebrow">Bellek{% if mem_pct >= 80 %}<span class="state-tag warn">Yüksek</span>{% endif %}</span>
     <div class="stat-flex">
       <div class="stat-body">
         <p class="stat-value small">{{ info.mem_used | hb }}</p>
@@ -40,8 +45,8 @@
       </div>
     </div>
   </div>
-  <div class="panel stat">
-    <span class="eyebrow">Disk (/)</span>
+  <div class="panel stat{{ ' warn' if disk_pct >= 85 }}">
+    <span class="eyebrow">Disk (/){% if disk_pct >= 85 %}<span class="state-tag warn">Dolu</span>{% endif %}</span>
     <div class="stat-flex">
       <div class="stat-body">
         <p class="stat-value small">{{ info.disk_used | hb }}</p>
@@ -70,9 +75,9 @@
       {% for e in events %}
       <tr>
         <td class="nowrap mono">{{ e.ts }}</td>
-        <td class="nowrap">{{ e.module }}</td>
-        <td><span class="badge {{ e.level }}">{{ e.level }}</span></td>
-        <td>{{ e.message }}</td>
+        <td class="nowrap">{{ {'core':'Çekirdek','ddos':'DDoS','audit':'Denetim','geoip':'Coğrafya','notify':'Bildirim'}.get(e.module, e.module) }}</td>
+        <td><span class="badge {{ e.level }}">{{ {'info':'Bilgi','warning':'Uyarı','error':'Hata'}.get(e.level, e.level) }}</span></td>
+        <td>{{ e.message }}{% if e.count > 1 %} <span class="muted">(son {{ e.count }} olay)</span>{% endif %}</td>
       </tr>
       {% endfor %}
       </tbody>

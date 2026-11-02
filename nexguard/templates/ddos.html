@@ -9,10 +9,15 @@
 </div>
 {% if request.query_params.get('live') %}<meta http-equiv="refresh" content="10">{% endif %}
 
-<section class="panel banner l{{ data.level }}">
+<section class="panel banner l{{ data.level if data.running else "x" }}">
+  {% if not data.running %}
+  <div class="banner-top"><strong>Durum: bilinmiyor</strong></div>
+  <div class="reason">İzleyici çalışmıyor; ölçüm yapılamıyor. Paneli yeniden başlatın.</div>
+  {% else %}
   <div class="banner-top"><strong>Durum: {{ data.level_name | upper }}</strong><span class="muted small">{{ data.since }}'den beri</span></div>
   {% for r in data.reasons %}<div class="reason">{{ r }}</div>{% endfor %}
-  {% if not data.running %}<div class="reason">İzleyici çalışmıyor.</div>{% endif %}
+  {% if data.level >= 1 %}<div class="reason"><a href="#onlemler">Önlem önerilerine git</a>: SYN çerezleri, kuyruk uzunluğu ve nftables hız sınırı.</div>{% endif %}
+  {% endif %}
 </section>
 
 {% if data.last %}
@@ -74,7 +79,7 @@
   <p><button>Kaydet</button></p>
 </form>
 
-<h2 class="section-title">Önlem önerileri</h2>
+<h2 class="section-title" id="onlemler">Önlem önerileri</h2>
 <div class="panel">
   <p class="muted">Panel root olmadan çalışır, bu yüzden kural uygulamaz. Aşağıdakiler sizin onayınızla uygulayacağınız önerilerdir.</p>
   <div class="tscroll"><table><thead><tr><th>Çekirdek ayarı</th><th>Şu an</th><th>Önerilen</th><th></th></tr></thead><tbody>
