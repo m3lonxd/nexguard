@@ -74,3 +74,17 @@ def test_geoip_page_and_lookup_validation(env):
     tok = csrf_from(client, "/m/geoip")
     assert client.post("/m/geoip/lookup", data={"csrf": tok, "ip": "not-an-ip"}).status_code == 303
     assert client.post("/m/geoip/lookup", data={"ip": "1.1.1.1"}).status_code in (400, 403)  # CSRF yok
+
+
+def test_live_map_page_and_api(env):
+    from nexguard.modules import ddos
+    client, _ = env
+    assert client.get("/api/live").status_code == 401  # oturumsuz
+    do_login(client)
+    assert client.get("/m/harita").status_code == 200
+    r = client.get("/api/live")
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body) >= {"level", "countries", "sources", "total", "installed"}
+    assert r.headers["cache-control"] == "no-store"
+    assert ddos.monitor is not None

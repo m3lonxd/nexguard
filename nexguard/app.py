@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -159,6 +159,13 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
                                              state=level(mem_pct), size=104),
                       disk_donut=charts.donut(disk_pct, center=f"{disk_pct}%", sub="disk",
                                               state=level(disk_pct), size=104))
+
+    @app.get("/api/live")
+    async def api_live(request: Request):
+        if not logged_in(request):
+            return JSONResponse({"error": "oturum gerekli"}, status_code=401, headers={"Cache-Control": "no-store"})
+        from .modules import harita
+        return JSONResponse(harita.live_payload(), headers={"Cache-Control": "no-store"})
 
     @app.get("/m/{slug}", response_class=HTMLResponse)
     async def module_page(request: Request, slug: str):

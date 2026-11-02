@@ -790,3 +790,28 @@ dd { margin: 0; overflow-wrap: anywhere; }
 
 .tscroll { overflow-x: auto; max-width: 100%; }
 .tscroll table { min-width: 420px; }
+
+/* --- canlı harita ------------------------------------------------------ */
+.map-panel { position: relative; padding: 14px; }
+#worldmap { display: block; width: 100%; height: auto; }
+#worldmap .land path { fill: var(--surface-2); stroke: var(--line); stroke-width: .5; vector-effect: non-scaling-stroke; transition: fill .4s; }
+#worldmap .land path.hit.h1 { fill: color-mix(in srgb, var(--accent) 25%, var(--surface-2)); }
+#worldmap .land path.hit.h2 { fill: color-mix(in srgb, var(--accent) 45%, var(--surface-2)); }
+#worldmap .land path.hit.h3 { fill: color-mix(in srgb, var(--warn) 55%, var(--surface-2)); }
+#worldmap .land path.hit.h4 { fill: color-mix(in srgb, var(--bad) 65%, var(--surface-2)); }
+#worldmap .dot { cursor: pointer; }
+#worldmap .dot .core { fill: var(--accent); stroke: var(--surface); stroke-width: 1; }
+#worldmap .dot .pulse { fill: var(--accent); opacity: .35; transform-box: fill-box; transform-origin: center; animation: nxpulse 2.2s ease-out infinite; }
+#worldmap .dot.anon .core { fill: var(--bad); }
+#worldmap .dot.anon .pulse { fill: var(--bad); }
+@keyframes nxpulse { 0% { transform: scale(.5); opacity: .55; } 100% { transform: scale(2.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #worldmap .dot .pulse { animation: none; } }
+.map-legend { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 8px; color: var(--muted); font-size: 11px; }
+.map-legend .lg { width: 22px; height: 8px; border-radius: 4px; display: inline-block; }
+.map-legend .l1 { background: color-mix(in srgb, var(--accent) 25%, var(--surface-2)); }
+.map-legend .l2 { background: color-mix(in srgb, var(--accent) 45%, var(--surface-2)); }
+.map-legend .l3 { background: color-mix(in srgb, var(--warn) 55%, var(--surface-2)); }
+.map-legend .l4 { background: color-mix(in srgb, var(--bad) 65%, var(--surface-2)); }
+.map-tip { position: absolute; z-index: 5; pointer-events: none; padding: 6px 10px; border-radius: 8px; font-size: 12px;
+  background: var(--fg); color: var(--surface); box-shadow: var(--shadow, 0 4px 14px rgba(0,0,0,.2)); }
+.tscroll td { white-space: nowrap; }

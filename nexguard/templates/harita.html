@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Canlı harita - NexGuard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Canlı harita</h1><p class="sub">{{ mod.description }}</p></div>
+  <div class="actions"><span class="badge info" id="live-state">bağlanıyor</span></div>
+</div>
+
+<section class="panel banner l0" id="live-banner">
+  <div class="banner-top"><strong id="live-level">Durum: -</strong><span class="muted small" id="live-ts"></span></div>
+  <div class="reason" id="live-verdict">Veri bekleniyor...</div>
+</section>
+
+<section class="panel map-panel" style="margin-top:14px">
+  <svg id="worldmap" viewBox="0 10 {{ data.w }} 400" role="img" aria-label="Dünya haritası: bağlantı kaynakları" preserveAspectRatio="xMidYMid meet">
+    <g class="land">{% for cc, d in data.paths.items() %}{% if cc != 'AQ' %}<path id="c-{{ cc }}" data-cc="{{ cc }}" d="{{ d }}"/>{% endif %}{% endfor %}</g>
+    <g id="dots"></g>
+  </svg>
+  <div class="map-legend"><span>Az</span><i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i><span>Çok bağlantı</span></div>
+  <div id="map-tip" class="map-tip" hidden></div>
+</section>
+
+<div class="grid grid-2" style="margin-top:14px">
+  <section class="panel"><div class="eyebrow">Ülkeler</div>
+    <div class="tscroll"><table><thead><tr><th>Ülke</th><th>IP</th><th>Bağlantı</th><th>Aracı</th></tr></thead><tbody id="tb-countries"><tr><td colspan="4" class="muted">Veri bekleniyor...</td></tr></tbody></table></div></section>
+  <section class="panel"><div class="eyebrow">En çok bağlanan kaynaklar</div>
+    <div class="tscroll"><table><thead><tr><th>IP</th><th>Bağlantı</th><th>Ülke</th><th>İşaret</th></tr></thead><tbody id="tb-sources"><tr><td colspan="4" class="muted">Veri bekleniyor...</td></tr></tbody></table></div></section>
+</div>
+
+<p class="muted small" style="margin-top:14px">Harita yalnızca sunucuya bağlı TCP kaynaklarını gösterir (5 saniyede bir yenilenir). Hat doyuran UDP/ICMP saldırılarının kaynağı bağlantı tablosunda görünmez. Sorgular yerel veritabanında yapılır; IP adresleri dışarı gönderilmez. Harita verisi: Natural Earth (kamu malı).</p>
+{% if not data.live.installed %}<p class="muted small">Ülke bilgisi için <a href="/m/geoip">Coğrafya</a> veritabanını indirin.</p>{% endif %}
+<script src="/static/harita.js" defer></script>
+{% endblock %}
