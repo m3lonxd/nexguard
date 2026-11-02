@@ -174,7 +174,8 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
                 summaries.append(m.summary())
             except Exception as exc:  # noqa: BLE001 - tek özet paneli düşürmemeli
                 db.log_event("core", "error", f"Özet üretilemedi: {m.slug}: {exc.__class__.__name__}")
-        return render(request, "overview.html", info=info, events=events, page="overview",
+        from .modules import harita
+        return render(request, "overview.html", world=harita._world(), info=info, events=events, page="overview",
                       summaries=summaries, warn24=warn24, mem_pct=mem_pct, disk_pct=disk_pct,
                       mem_donut=charts.donut(mem_pct, center=f"{mem_pct}%", sub="bellek",
                                              state=level(mem_pct), size=104),

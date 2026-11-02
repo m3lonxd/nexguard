@@ -29,6 +29,20 @@
 </div>
 {% endif %}
 
+<h2 class="section-title">Bağlantı kaynakları</h2>
+<div class="map-row">
+  <section class="panel map-panel">
+    {% include "_map.html" %}
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>Ülkeler</h2><div class="actions"><span class="badge info" id="live-state">bağlanıyor</span></div></div>
+    <p class="muted small" id="live-verdict">Veri bekleniyor...</p>
+    <div class="tscroll"><table><thead><tr><th>Ülke</th><th>IP</th><th>Bağlantı</th><th>Aracı</th></tr></thead><tbody id="tb-countries" data-limit="5"><tr><td colspan="4" class="muted">Veri bekleniyor...</td></tr></tbody></table></div>
+    <p style="margin:12px 0 0"><a class="link-btn" href="/m/harita">Canlı haritayı aç →</a></p>
+  </section>
+</div>
+<script src="/static/harita.js" defer></script>
+
 <h2 class="section-title">Sistem</h2>
 <div class="grid grid-4">
   <div class="panel stat{{ ' warn' if info.load[0] > info.cpus }}">

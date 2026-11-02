@@ -88,3 +88,5 @@ def test_live_map_page_and_api(env):
     assert set(body) >= {"level", "countries", "sources", "total", "installed"}
     assert r.headers["cache-control"] == "no-store"
     assert ddos.monitor is not None
+    home = client.get("/")
+    assert home.status_code == 200 and 'id="worldmap"' in home.text and "/static/harita.js" in home.text

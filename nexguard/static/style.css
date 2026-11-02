@@ -1010,3 +1010,6 @@ a { color: var(--accent); }
 .summary-actions form { margin: 0; }
 .panel > .eyebrow { margin-bottom: 10px; }
 @media (max-width: 880px) { .nav { flex-wrap: wrap; } }
+.map-row { display: grid; gap: 14px; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; }
+@media (max-width: 880px) { .map-row { grid-template-columns: minmax(0, 1fr); } }
+.map-row .tscroll table { min-width: 0; }
