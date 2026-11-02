@@ -1,57 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Denetim - NexGuard{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>Güvenlik denetimi</h1>
-    <p class="sub">{{ mod.description }}</p>
+<h1 class="skip">Güvenlik denetimi</h1>
+{% set r = data.result %}
+{% set high = data.counts.get('high', 0) if r else 0 %}
+{% set medium = data.counts.get('medium', 0) if r else 0 %}
+{% set lvl = 'x' if not r else (2 if high else 1 if medium else 0) %}
+<div class="dash">
+  <div class="dash-left">
+    <section class="tile-card">
+      <div class="head-row"><h2>Güvenlik skoru</h2>{% if r %}<span class="chip">Not {{ r.grade }}</span>{% endif %}</div>
+      <svg class="ring{{ ' bad' if r and r.score < 50 else ' warn' if r and r.score < 75 }}" viewBox="0 0 100 100" aria-hidden="true"><circle class="trk" cx="50" cy="50" r="42"/><circle class="val" cx="50" cy="50" r="42" pathLength="100" data-ring="{{ r.score if r else 0 }}"/></svg>
+      <div class="big"><span class="count">{{ r.score if r else 0 }}</span><small>/ 100</small></div>
+      <div class="note">{% if r %}Son tarama {{ r.ts }}{% else %}Henüz tarama yok{% endif %}</div>
+    </section>
+    <section class="tile-card">
+      <h2>Kapsam</h2>
+      <p class="note">Tarama /proc, servis ve dosya izinlerini okur; hiçbir ayarı değiştirmez. Panel ayrıcalıksız çalışır; firewall kuralları ve <code>/etc/shadow</code> gibi root gerektiren kontroller kısmen doğrulanamaz ve "Bilgi" olarak işaretlenir.</p>
+    </section>
   </div>
-  <div class="actions">
-    <form method="post" action="/m/audit/run">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button>{{ "Yeniden tara" if data.result else "Denetimi çalıştır" }}</button>
-    </form>
-  </div>
-</div>
-
-<section class="panel">
-  {% if data.result %}
-  <div class="row inline">
-    <div class="score g{{ data.result.grade }}"><span>{{ data.result.score }}</span><small>{{ data.result.grade }}</small></div>
-    <div>
-      <p class="muted small">Son tarama: {{ data.result.ts }}</p>
-      <div class="inline">
-        {% for sev, lbl in [('high','Yüksek'),('medium','Orta'),('low','Düşük'),('info','Bilgi'),('ok','Geçti')] %}
-        <span class="badge {{ sev }}">{{ lbl }} {{ data.counts.get(sev, 0) }}</span>
-        {% endfor %}
+  <section class="map-card l{{ lvl }}">
+    <div class="map-top">
+      <span class="state-pill l{{ lvl }}">{{ 'TARANMADI' if not r else 'RİSK VAR' if high else 'DİKKAT' if medium else 'TEMİZ' }}</span>
+      <span class="map-why">{{ mod.description }}</span>
+      <form method="post" action="/m/audit/run"><input type="hidden" name="csrf" value="{{ csrf }}"><button>{{ "Yeniden tara" if r else "Denetimi çalıştır" }}</button></form>
+    </div>
+    <div class="findings">
+      {% if r %}
+      {% for f in r.findings if f.severity != 'ok' %}
+      <article class="finding {{ f.severity }}">
+        <span class="sev-chip {{ f.severity }}">{{ {'high':'Yüksek','medium':'Orta','low':'Düşük','info':'Bilgi'}[f.severity] }}</span>
+        <div><strong>{{ f.title }}</strong>
+        {% if f.detail %}<p class="muted">{{ f.detail }}</p>{% endif %}
+        {% if f.fix %}<p class="fix">Öneri: <code>{{ f.fix }}</code></p>{% endif %}</div>
+      </article>
+      {% else %}
+      <p class="muted">Yüksek, orta veya düşük önemde bulgu yok.</p>
+      {% endfor %}
+      {% else %}
+      <p class="muted">Henüz denetim çalıştırılmadı. Yukarıdaki düğmeyle başlatın; birkaç saniye sürer.</p>
+      {% endif %}
+    </div>
+    {% if r %}
+    <div class="float">
+      <div class="head-row"><h2>Bulgu dağılımı</h2></div>
+      <div class="tiles">
+        <div class="t o"><span>Yüksek</span><b class="count">{{ high }}</b></div>
+        <div class="t a"><span>Orta</span><b class="count">{{ medium }}</b></div>
+        <div class="t v"><span>Düşük</span><b class="count">{{ data.counts.get('low', 0) }}</b></div>
+        <div class="t e"><span>Bilgi</span><b class="count">{{ data.counts.get('info', 0) }}</b></div>
+        <div class="t g"><span>Geçti</span><b class="count">{{ data.counts.get('ok', 0) }}</b></div>
       </div>
     </div>
-  </div>
-  {% else %}
-  <div class="empty"><span>Henüz denetim çalıştırılmadı.</span><span class="tiny">Tarama /proc, servis ve dosya izinlerini okur; hiçbir ayarı değiştirmez.</span></div>
-  {% endif %}
-</section>
-
-{% if data.result %}
-<h2 class="section-title">Bulgular</h2>
-{% for f in data.result.findings if f.severity != 'ok' %}
-<section class="panel finding {{ f.severity }}">
-  <div class="inline">
-    <span class="badge {{ f.severity }}">{{ {'high':'Yüksek','medium':'Orta','low':'Düşük','info':'Bilgi'}[f.severity] }}</span>
-    <strong>{{ f.title }}</strong>
-  </div>
-  {% if f.detail %}<p class="muted">{{ f.detail }}</p>{% endif %}
-  {% if f.fix %}<p class="fix">Öneri: <code>{{ f.fix }}</code></p>{% endif %}
-</section>
-{% else %}
-<section class="panel"><p class="muted">Yüksek, orta veya düşük önemde bulgu yok.</p></section>
-{% endfor %}
-
-<details class="panel">
-  <summary>Geçen kontroller ({{ data.counts.get('ok', 0) }})</summary>
-  <ul>{% for f in data.result.findings if f.severity == 'ok' %}<li>{{ f.title }}</li>{% endfor %}</ul>
-</details>
-
-<p class="muted small">Panel ayrıcalıksız çalışır; firewall kuralları ve <code>/etc/shadow</code> gibi root gerektiren kontroller kısmen doğrulanamaz ve "Bilgi" olarak işaretlenir. Hiçbir düzeltme otomatik uygulanmaz.</p>
+    {% endif %}
+  </section>
+</div>
+{% if r %}
+<section class="wide"><details><summary>Geçen kontroller ({{ data.counts.get('ok', 0) }})</summary>
+  <ul>{% for f in r.findings if f.severity == 'ok' %}<li>{{ f.title }}</li>{% endfor %}</ul></details></section>
 {% endif %}
 {% endblock %}

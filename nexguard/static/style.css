@@ -360,7 +360,7 @@ footer.site { padding: 12px var(--pad); color: var(--muted); font-size: 12px; }
 .float { margin-top: auto; padding: 14px 16px; border-radius: 16px; background: #3a3a37; }
 .float h2 { margin-bottom: 4px; font-size: 16px; font-weight: 500; }
 .float p { margin-bottom: 10px; color: #d6d5ce; font-size: 13px; max-width: 95ch; }
-.tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
 .t { padding: 10px 8px 9px; border-radius: 12px; color: var(--ink); text-align: center; transition: transform .12s var(--ease); }
 .t:hover { transform: translateY(-3px); }
 .t span { display: block; font-size: 12.5px; font-weight: 500; }
@@ -424,3 +424,23 @@ details[open] > :not(summary) { animation: rise .16s var(--ease) both; }
 #onlemler { scroll-margin-top: 12px; }
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* Denetim, Coğrafya, Ayarlar */
+.findings { flex: 1; display: flex; flex-direction: column; gap: 8px; margin: 12px 0; min-width: 0; }
+.finding { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 12px; padding: 12px 14px; border-radius: var(--r); background: var(--surface); }
+.finding p { margin: 4px 0 0; font-size: 13px; }
+.sev-chip { align-self: start; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 600; text-align: center; }
+.sev-chip.high { background: var(--flood-bad); color: var(--on-bad); }
+.sev-chip.medium { background: var(--warn); color: var(--on-warn); }
+.sev-chip.low { background: var(--t-olive); color: var(--ink); }
+.lookup { margin: 10px 0 8px; }
+.lookup input { padding: 12px 14px; font-size: 15px; }
+.map-top form { margin: 0; }
+.dash.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: start; }
+.map-card.lflat { min-height: 0; background: var(--surface); padding: 16px 18px; }
+.map-top h2 { margin: 0; flex: 1; font-size: 15px; font-weight: 500; }
+.set-body { margin-top: 12px; }
+.tile-card form + .row { margin-top: 12px; }
+.t b { overflow-wrap: anywhere; }
+@media (max-width: 1080px) { .dash.two { grid-template-columns: minmax(0, 1fr); } .dash.two .map-card { order: 0; } }
+@media (max-width: 640px) { .finding { grid-template-columns: minmax(0, 1fr); } .sev-chip { justify-self: start; } }
