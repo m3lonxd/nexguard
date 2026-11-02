@@ -444,3 +444,14 @@ html { scroll-behavior: smooth; }
 .t b { overflow-wrap: anywhere; }
 @media (max-width: 1080px) { .dash.two { grid-template-columns: minmax(0, 1fr); } .dash.two .map-card { order: 0; } }
 @media (max-width: 640px) { .finding { grid-template-columns: minmax(0, 1fr); } .sev-chip { justify-self: start; } }
+
+/* SSH tuzağı */
+.rank { margin: 0; padding: 0; list-style: none; }
+.rank li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.rank li:first-child { border-top: 0; }
+.rank code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trap { padding: 12px 14px; border-radius: var(--r); background: var(--surface); min-width: 0; }
+.trap-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; font-size: 13.5px; }
+.trap pre { max-height: 220px; margin: 0; border: 0; border-radius: 10px; color: #f6d9a8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.trap .note { margin: 6px 0 0; }
+.findings > h2 { margin: 0 0 2px; }

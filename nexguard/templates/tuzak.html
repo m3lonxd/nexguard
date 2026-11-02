@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}SSH tuzağı - NexGuard{% endblock %}
+{% block content %}
+<h1 class="skip">SSH tuzağı</h1>
+<div class="dash">
+  <div class="dash-left">
+    <section class="tile-card">
+      <div class="head-row"><h2>Başarısız giriş</h2><span class="chip">Son 7 gün</span></div>
+      <div class="big"><span class="count">{{ data.attempts }}</span><small>deneme</small></div>
+      <div class="note">{{ data.unique_ips }} farklı IP, {{ data.country_count }} ülke. {{ data.invalid }} deneme sunucuda olmayan kullanıcı adıyla.</div>
+    </section>
+    <section class="tile-card">
+      <h2>En çok denenen kullanıcı</h2>
+      {% if data.top_users %}{% set mx = data.top_users[0][1] %}
+      <ul class="rank">{% for u, n in data.top_users %}<li><code>{{ u or "(boş)" }}</code><span>{{ n }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="note">Kayıt yok.</p>{% endif %}
+    </section>
+    <section class="tile-card">
+      <h2>Tuzakta denenen parola</h2>
+      {% if data.trap_passwords %}
+      <ul class="rank">{% for p, n in data.trap_passwords %}<li><code>{{ p or "(boş)" }}</code><span>{{ n }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="note">Parolayı gerçek SSH kaydetmez; yalnızca tuzak görür. Henüz kayıt yok.</p>{% endif %}
+    </section>
+  </div>
+  {% set sv = data.service %}
+  <section class="map-card l{{ 0 if sv == 'on' else 2 if sv == 'failed' else 'x' }}">
+    <div class="map-top">
+      <span class="state-pill l{{ 0 if sv == 'on' else 2 if sv == 'failed' else 'x' }}">{{ {'on':'TUZAK AÇIK','off':'TUZAK KAPALI','absent':'KURULU DEĞİL','failed':'TUZAK HATA VERDİ'}.get(sv, 'GEÇİŞ YAPIYOR') }}</span>
+      <span class="map-why">{{ data.note or ("Komutlar gerçekten çalışmaz; saldırgan sahte bir sistemdedir, gerçek sisteme erişimi yoktur." if sv != 'absent' else "Sahte SSH bu makinede kurulu değil; yalnızca gerçek SSH denemeleri gösteriliyor.") }}</span>
+      {% if sv != 'absent' %}
+      <form method="post" action="/m/tuzak/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="want" value="{{ 'off' if sv == 'on' else 'on' }}"><button{% if sv == 'on' %} class="ghost"{% endif %}>{{ "Tuzağı kapat" if sv == 'on' else "Tuzağı aç" }}</button></form>
+      {% endif %}
+    </div>
+    <div class="findings">
+      <h2>Tuzağa düşenler</h2>
+      {% for s in data.trap_shown %}
+      <article class="trap">
+        <div class="trap-head"><b>{{ s.ip }}</b><span class="muted">{{ s.country }} · {{ s.when }}</span>{% if s.user %}<span class="muted">giriş: <code>{{ s.user }}</code> / <code>{{ s.password or "(boş)" }}</code></span>{% endif %}</div>
+        {% if s.commands %}<pre>{% for c in s.commands %}$ {{ c }}
+{% endfor %}</pre>{% else %}<p class="note">Girdi, komut yazmadan çıktı.</p>{% endif %}
+        {% if s.downloads %}<p class="note">İndirmeye çalıştı: {% for u in s.downloads %}<code>{{ u }}</code>{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+      </article>
+      {% else %}
+      <p class="muted">{{ "Henüz kimse düşmedi. Botların tuzağı bulması zaman alabilir." if data.service == 'on' else "Tuzak kayıtlarında oturum yok." }}</p>
+      {% endfor %}
+    </div>
+    <div class="float">
+      <div class="tiles">
+        <div class="t o"><span>Tuzak oturumu</span><b class="count">{{ data.trap_sessions }}</b></div>
+        <div class="t a"><span>Girdiğini sanan</span><b class="count">{{ data.trap_logins }}</b></div>
+        <div class="t e"><span>Komut</span><b class="count">{{ data.trap_commands }}</b></div>
+        <div class="t g"><span>İndirme denemesi</span><b class="count">{{ data.trap_downloads }}</b></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="split">
+  <section><h2>Ülkelere göre deneme</h2>
+    {% if data.countries %}<div class="tscroll"><table><thead><tr><th>Ülke</th><th>IP</th><th>Deneme</th></tr></thead><tbody>
+    {% for c in data.countries %}<tr><td>{{ c.country }}</td><td>{{ c.ips }}</td><td>{{ c.n }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">Kayıt yok.</p>{% endif %}
+    <h2 class="mt">En ısrarcı IP'ler</h2>
+    {% if data.top_ips %}<div class="tscroll"><table><thead><tr><th>IP</th><th>Ülke</th><th>Deneme</th></tr></thead><tbody>
+    {% for r in data.top_ips %}<tr><td>{{ r.ip }}</td><td>{{ r.country }}</td><td>{{ r.n }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+  </section>
+  <section><h2>Son denemeler</h2>
+    {% if data.recent %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>Kullanıcı</th><th>IP</th><th>Ülke</th></tr></thead><tbody>
+    {% for f in data.recent %}<tr><td>{{ f.when }}</td><td><code>{{ f.user or "(boş)" }}</code></td><td>{{ f.ip }}</td><td>{{ f.country }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">Kayıt yok.</p>{% endif %}
+  </section>
+</div>
+<section class="wide"><h2>Gerçek SSH'a başarılı girişler</h2>
+  <p class="note">Bunlar tuzak değil, gerçek sisteme yapılan girişler. Tanımadığın bir IP görürsen ciddiye al.</p>
+  {% if data.accepted %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>Kullanıcı</th><th>Yöntem</th><th>IP</th><th>Ülke</th></tr></thead><tbody>
+  {% for a in data.accepted %}<tr><td>{{ a.when }}</td><td><code>{{ a.user }}</code></td><td>{{ a.method }}</td><td>{{ a.ip }}</td><td>{{ a.country }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">Kayıt yok.</p>{% endif %}
+</section>
+{% endblock %}
