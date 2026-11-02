@@ -19,7 +19,7 @@
   <div class="row inline">
     <div class="score g{{ data.result.grade }}"><span>{{ data.result.score }}</span><small>{{ data.result.grade }}</small></div>
     <div>
-      <p class="muted small" style="margin:0 0 8px">Son tarama: {{ data.result.ts }}</p>
+      <p class="muted small">Son tarama: {{ data.result.ts }}</p>
       <div class="inline">
         {% for sev, lbl in [('high','Yüksek'),('medium','Orta'),('low','Düşük'),('info','Bilgi'),('ok','Geçti')] %}
         <span class="badge {{ sev }}">{{ lbl }} {{ data.counts.get(sev, 0) }}</span>
@@ -44,7 +44,7 @@
   {% if f.fix %}<p class="fix">Öneri: <code>{{ f.fix }}</code></p>{% endif %}
 </section>
 {% else %}
-<section class="panel"><p class="muted" style="margin:0">Yüksek, orta veya düşük önemde bulgu yok.</p></section>
+<section class="panel"><p class="muted">Yüksek, orta veya düşük önemde bulgu yok.</p></section>
 {% endfor %}
 
 <details class="panel">
@@ -52,6 +52,6 @@
   <ul>{% for f in data.result.findings if f.severity == 'ok' %}<li>{{ f.title }}</li>{% endfor %}</ul>
 </details>
 
-<p class="muted small" style="margin-top:14px">Panel ayrıcalıksız çalışır; firewall kuralları ve <code>/etc/shadow</code> gibi root gerektiren kontroller kısmen doğrulanamaz ve "Bilgi" olarak işaretlenir. Hiçbir düzeltme otomatik uygulanmaz.</p>
+<p class="muted small">Panel ayrıcalıksız çalışır; firewall kuralları ve <code>/etc/shadow</code> gibi root gerektiren kontroller kısmen doğrulanamaz ve "Bilgi" olarak işaretlenir. Hiçbir düzeltme otomatik uygulanmaz.</p>
 {% endif %}
 {% endblock %}

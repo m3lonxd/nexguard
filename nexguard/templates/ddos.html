@@ -21,19 +21,19 @@
 </section>
 
 {% if data.last %}
-<div class="grid grid-4" style="margin-top:14px">
-  <div class="panel stat"><div class="eyebrow">Gelen paket</div><p class="stat-value">{{ "%.0f"|format(data.last.rx_pps) }}</p><p class="stat-sub">paket/sn</p></div>
-  <div class="panel stat"><div class="eyebrow">Gelen bant</div><p class="stat-value">{{ "%.1f"|format(data.last.rx_mbps) }}</p><p class="stat-sub">Mbit/sn</p></div>
-  <div class="panel stat"><div class="eyebrow">SYN_RECV</div><p class="stat-value">{{ data.last.syn_recv }}</p><p class="stat-sub">{{ data.last.established }} kurulmuş bağlantı</p></div>
-  <div class="panel stat"><div class="eyebrow">Conntrack</div>{% if data.last.conntrack %}<p class="stat-value">{{ data.last.conntrack[0] }}</p><p class="stat-sub">/ {{ data.last.conntrack[1] }}</p>{% else %}<p class="stat-sub">Bu sistemde yok</p>{% endif %}</div>
-</div>
+<dl class="readouts boxed">
+  <div><dt>Gelen paket</dt><dd>{{ "%.0f"|format(data.last.rx_pps) }}<small>paket/sn</small></dd></div>
+  <div><dt>Gelen bant</dt><dd>{{ "%.1f"|format(data.last.rx_mbps) }}<small>Mbit/sn</small></dd></div>
+  <div><dt>SYN_RECV</dt><dd>{{ data.last.syn_recv }}<small>{{ data.last.established }} kurulmuş bağlantı</small></dd></div>
+  <div><dt>Conntrack</dt>{% if data.last.conntrack %}<dd>{{ data.last.conntrack[0] }}<small>/ {{ data.last.conntrack[1] }}</small></dd>{% else %}<dd class="none">yok<small>bu sistemde ölçülemiyor</small></dd>{% endif %}</div>
+</dl>
 
 <h2 class="section-title">Son dakikalar</h2>
-<div class="grid grid-2">
+<div class="grid grid-3">
   <section class="panel"><div class="eyebrow">Paket/sn</div>{{ data.pps_chart }}</section>
   <section class="panel"><div class="eyebrow">Mbit/sn</div>{{ data.mbps_chart }}</section>
+  <section class="panel"><div class="eyebrow">SYN_RECV</div>{{ data.syn_chart }}</section>
 </div>
-<div class="grid grid-2" style="margin-top:14px"><section class="panel"><div class="eyebrow">SYN_RECV</div>{{ data.syn_chart }}</section></div>
 
 <h2 class="section-title">Trafik kaynakları</h2>
 <section class="panel">
@@ -41,13 +41,13 @@
   <p>{{ data.geo.verdict }}</p>
   <div class="tscroll"><table><thead><tr><th>Ülke</th><th>IP</th><th>Bağlantı</th><th>Aracı</th></tr></thead><tbody>
   {% for c in data.geo.countries %}<tr><td>{{ c.country }}</td><td>{{ c.ips }}</td><td>{{ c.n }}</td><td>{{ "%d"|format(100 * c.anon / c.n) if c.n else 0 }}%</td></tr>{% endfor %}</tbody></table></div>
-  <details style="margin-top:10px"><summary>IP ayrıntıları</summary>
+  <details><summary>IP ayrıntıları</summary>
   <div class="tscroll"><table><thead><tr><th>IP</th><th>Bağlantı</th><th>Ülke</th><th>Ağ</th><th>İşaret</th></tr></thead><tbody>
   {% for r in data.geo.sources %}<tr><td>{{ r.ip }}</td><td>{{ r.n }}</td><td>{{ r.country }}</td><td>{% if r.asn %}AS{{ r.asn }} {{ r.org }}{% else %}-{% endif %}</td><td>{{ r.flags | join(", ") if r.flags else "-" }}</td></tr>{% endfor %}</tbody></table></div></details>
 {% elif data.last.top_ips %}
   <div class="tscroll"><table><thead><tr><th>IP</th><th>Bağlantı</th></tr></thead><tbody>
   {% for ip, n in data.last.top_ips %}<tr><td>{{ ip }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table></div>
-{% else %}<p class="muted" style="margin:0">Dışarıdan bağlantı yok.</p>{% endif %}
+{% else %}<p class="muted">Dışarıdan bağlantı yok.</p>{% endif %}
 {% if not data.geo_status.installed %}<p class="muted small">Ülke ve ağ bilgisi için <a href="/m/geoip">Coğrafya</a> veritabanını kurun.</p>{% endif %}
 </section>
 {% else %}
@@ -59,7 +59,7 @@
 {% if data.attacks %}<div class="tscroll"><table><thead><tr><th>Başlangıç</th><th>Bitiş</th><th>Seviye</th><th>Tepe paket/sn</th><th>Tepe Mbit/sn</th><th>Tepe SYN</th><th>Kaynak</th></tr></thead><tbody>
 {% for a in data.attacks %}<tr><td>{{ a.started }}</td><td>{{ a.ended or "sürüyor" }}</td><td>{{ "saldırı" if a.level >= 2 else "uyarı" }}</td><td>{{ "%.0f"|format(a.pps or 0) }}</td><td>{{ "%.1f"|format(a.mbps or 0) }}</td><td>{{ a.syn or 0 }}</td>
 <td>{% for c in a.countries %}{{ c.country }}{{ ", " if not loop.last }}{% else %}-{% endfor %}{% if a.anon_pct %} <span class="muted small">(%{{ a.anon_pct }} aracı)</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
-{% else %}<p class="muted" style="margin:0">Kayıtlı saldırı yok.</p>{% endif %}
+{% else %}<p class="muted">Kayıtlı saldırı yok.</p>{% endif %}
 </section>
 
 <h2 class="section-title">Bildirim</h2>
