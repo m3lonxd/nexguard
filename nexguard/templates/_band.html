@@ -3,4 +3,5 @@
   <span class="facts" id="band-facts">{{ live.total }} bağlantı · {{ live.countries | length }} ülke</span>
   <span class="why" id="band-why">{{ live.why }}</span>
   <time id="live-ts">{{ live.ts }}</time>
+  <div class="gauge-row"><div class="gauge" aria-hidden="true"><i id="gauge-fill"></i></div><span id="gauge-text">{{ live.pressure_text }}</span></div>
 </section>
