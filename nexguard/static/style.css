@@ -815,3 +815,81 @@ dd { margin: 0; overflow-wrap: anywhere; }
 .map-tip { position: absolute; z-index: 5; pointer-events: none; padding: 6px 10px; border-radius: 8px; font-size: 12px;
   background: var(--fg); color: var(--surface); box-shadow: var(--shadow, 0 4px 14px rgba(0,0,0,.2)); }
 .tscroll td { white-space: nowrap; }
+
+/* === Sade tema ===================================================
+   Operasyon paneli: düz yüzeyler, 1px çizgiler, gölgesiz, küçük yuvarlaklık.
+   Renk yalnızca durum bildirir; süs olarak kullanılmaz. */
+:root {
+  --bg: #f6f7f8;
+  --side: #fbfbfc;
+  --surface: #ffffff;
+  --surface-2: #eef0f2;
+  --hover: #f1f3f4;
+  --fg: #16191d;
+  --muted: #5b646d;
+  --line: #d9dde1;
+  --accent: #0b6f66;
+  --shadow: none;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1114;
+    --side: #12161a;
+    --surface: #151a1f;
+    --surface-2: #1d232a;
+    --hover: #1a2026;
+    --fg: #e6e9ec;
+    --muted: #8d97a1;
+    --line: #272e36;
+    --accent: #3cc7b6;
+  }
+}
+body { background: var(--bg); font-variant-numeric: tabular-nums; }
+
+/* logo: düz kutu, gradyan yok */
+.brand .logo, .login-brand .logo { background: var(--accent); box-shadow: none; border-radius: 7px; }
+.brand .logo { width: 30px; height: 30px; }
+
+/* yüzeyler */
+.panel, .card, .login-card { box-shadow: none; border-radius: var(--radius); }
+.panel { padding: 16px 18px; }
+button, .btn, input, select, .badge { box-shadow: none; }
+button, .btn { border-radius: 6px; }
+input, select { border-radius: 6px; }
+
+/* etiketler: büyük harf ve harf aralığı yok, başlık gibi okunur */
+.eyebrow, .section-title { text-transform: none; letter-spacing: 0; }
+.eyebrow { font-size: 13px; font-weight: 600; color: var(--muted); }
+.section-title { font-size: 14px; font-weight: 600; color: var(--fg); margin: 28px 0 10px; }
+th { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
+
+/* sayılar: iri kahraman rakam yok */
+.stat-value { font-size: 24px; font-weight: 600; letter-spacing: 0; }
+.stat-value.small { font-size: 20px; }
+.stat-sub { font-size: 12.5px; }
+
+/* süs olan halka ve minik grafikler kalkar */
+.summary .visual { display: none; }
+.stat-flex svg { display: none; }
+
+/* sol kenar çizgisi yerine düz çerçeve + durum noktası */
+.banner, .summary, .finding { border-left-width: 1px; }
+.summary::before { display: none; }
+.banner.l0 { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.banner.l1 { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.banner.l2 { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
+.summary-head::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: var(--muted); vertical-align: 1px; }
+.summary.ok .summary-head::before { background: var(--ok); }
+.summary.warn .summary-head::before { background: var(--warn); }
+.summary.bad .summary-head::before { background: var(--bad); }
+.summary .summary-main { display: block; }
+
+/* kenar çubuğu alt bölümü */
+.side-foot { padding: 12px 14px; }
+
+/* sahte canlılık animasyonu yok; harita noktası yalnızca gerçek veride çizilir */
+.pulse { animation: none; }
+.brand .word small, .panel-head h2, .login-brand small { text-transform: none; letter-spacing: 0; }
+.panel-head h2 { font-size: 14px; font-weight: 600; color: var(--fg); }
+.brand .word small { font-size: 11.5px; }
