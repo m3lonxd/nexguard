@@ -14,11 +14,11 @@
 <div class="grid grid-3">
   <section class="panel stat"><div class="eyebrow">Durum</div>
     <p class="stat-value small">{{ "Kurulu" if data.installed else "Kurulu değil" }}</p>
-    <p class="stat-sub">{% if data.updated %}Son güncelleme {{ data.updated }}{% else %}Henüz indirilmedi{% endif %}</p></section>
+    <p class="stat-sub">{% if data.geo.updated %}Son güncelleme {{ data.geo.updated }}{% else %}Henüz indirilmedi{% endif %}</p></section>
   <section class="panel stat"><div class="eyebrow">Tor çıkış düğümü</div>
     <p class="stat-value small">{{ data.geo.tor }}</p><p class="stat-sub">bilinen çıkış adresi</p></section>
   <section class="panel stat"><div class="eyebrow">İndirme</div>
-    <p class="stat-value small">{{ data.geo.phase }}</p><p class="stat-sub">{{ data.geo.message }}</p></section>
+    <p class="stat-value small">{{ {'idle':'Boşta','running':'İndiriliyor','done':'Tamamlandı','error':'Hata'}.get(data.geo.phase, data.geo.phase) }}</p><p class="stat-sub">{{ data.geo.message }}</p></section>
 </div>
 
 <h2 class="section-title">IP sorgula</h2>
