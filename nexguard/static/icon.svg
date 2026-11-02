@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NexGuard">
+  <rect width="512" height="512" rx="112" fill="#111110"/>
+  <path d="M256 96l150 56v104c0 96-64 164-150 190-86-26-150-94-150-190V152l150-56z" fill="#f6b95c"/>
+  <path d="M204 262l-44-44-28 28 72 72 128-128-28-28-100 100z" fill="#1a1408"/>
+</svg>

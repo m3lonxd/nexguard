@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400" role="img" aria-label="NexGuard: tek sunucunun güvenlik paneli">
+  <defs>
+    <radialGradient id="glow" cx="0.75" cy="0.5" r="0.6">
+      <stop offset="0" stop-color="#f6b95c" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#f6b95c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f6b95c" stop-opacity="0"/>
+      <stop offset="1" stop-color="#f6b95c" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="400" fill="#111110"/>
+  <rect width="1200" height="400" fill="url(#glow)"/>
+
+  <!-- radar -->
+  <g transform="translate(900 200)">
+    <circle r="150" fill="none" stroke="#41413e" stroke-width="2"/>
+    <circle r="100" fill="none" stroke="#41413e" stroke-width="1.5"/>
+    <circle r="50" fill="none" stroke="#41413e" stroke-width="1"/>
+    <line x1="-150" x2="150" y1="0" y2="0" stroke="#41413e" stroke-width="1"/>
+    <line x1="0" x2="0" y1="-150" y2="150" stroke="#41413e" stroke-width="1"/>
+    <g>
+      <path d="M0 0 L0 -150 A150 150 0 0 1 106 -106 Z" fill="url(#sweep)"/>
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="4s" repeatCount="indefinite"/>
+    </g>
+    <circle cx="-62" cy="-38" r="6" fill="#f0584f">
+      <animate attributeName="opacity" values="1;0.2;1" dur="1.6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="48" cy="72" r="5" fill="#f0893f">
+      <animate attributeName="opacity" values="0.3;1;0.3" dur="2.3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="96" cy="-70" r="4" fill="#6fce4f">
+      <animate attributeName="opacity" values="1;0.25;1" dur="3.1s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="-110" cy="60" r="4" fill="#6fce4f">
+      <animate attributeName="opacity" values="0.2;1;0.2" dur="2.7s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- shield mark -->
+  <g transform="translate(96 84) scale(2.2)">
+    <path d="M24 3l8 3v5.5c0 4.7-3.4 8-8 9.5-4.6-1.5-8-4.8-8-9.5V6l8-3z" fill="#f6b95c"/>
+    <path d="M20.6 15.4l-3-3 1.4-1.4 1.6 1.6 4-4 1.4 1.4z" fill="#1a1408"/>
+  </g>
+
+  <text x="96" y="236" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="88" font-weight="700" fill="#f4f3ef" letter-spacing="-2">NexGuard</text>
+  <text x="98" y="290" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="30" fill="#b4b3ac">Tek sunucunun güvenlik paneli</text>
+
+  <!-- status strip -->
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" fill="#b4b3ac">
+    <circle cx="100" cy="338" r="6" fill="#6fce4f">
+      <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="118" y="344">OPSEC denetimi</text>
+    <text x="330" y="344">DDoS izleme</text>
+    <text x="500" y="344">Canlı harita</text>
+    <text x="680" y="344">Coğrafya</text>
+  </g>
+</svg>
