@@ -3,7 +3,7 @@
   var NS = "http://www.w3.org/2000/svg";
   var $ = function (id) { return document.getElementById(id); };
   var svg = $("worldmap"), dots = $("dots"), tip = $("map-tip"), state = $("live-state");
-  if (!svg) return;
+  if (!svg && !$("ddos-live")) return;
   var calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   var seenHits = {}, seenArcs = {}, shown = {}, timer = null, first = true;
 
@@ -26,7 +26,7 @@
     var from = shown[id] || 0;
     shown[id] = value;
     if (calm || from === value) { el.textContent = format(value); return; }
-    var dur = first ? 2400 : 700, t0 = performance.now();
+    var dur = first ? 450 : 220, t0 = performance.now();
     (function step(now) {
       var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 4);
       el.textContent = format(from + (value - from) * e);
@@ -34,12 +34,12 @@
     })(t0);
   }
 
-  function drawLine(values, attack) {
-    var box = $("pps-line");
+  function drawLine(id, values, attack) {
+    var box = $(id);
     if (!box) return;
     clear(box);
     if (values.length < 2) return;
-    var W = 360, H = 110, top = 12, bot = 6;
+    var vb = box.viewBox.baseVal, W = vb.width, H = vb.height, top = 12, bot = 6;
     var peak = Math.max.apply(null, values), max = Math.max(peak * 1.25, 1);
     var showThr = attack <= max * 1.6;
     if (showThr) max = Math.max(max, attack * 1.1);
@@ -49,11 +49,19 @@
     var str = pts.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ");
     if (showThr) { var ty = H - bot - (attack / max) * (H - top - bot); svgEl("line", {"class": "thr", x1: 0, x2: W, y1: ty, y2: ty}, box); }
     svgEl("polygon", {"class": "area", points: "2," + (H - bot) + " " + str + " " + (W - 6) + "," + (H - bot)}, box);
-    var ln = svgEl("polyline", {"class": "ln" + (first && !calm ? " draw" : ""), points: str, pathLength: 1}, box);
-    if (!first) ln.removeAttribute("pathLength");
+    var attrs = {"class": "ln", points: str};
+    if (first && !calm) { attrs["class"] = "ln draw"; attrs.pathLength = 1; }
+    svgEl("polyline", attrs, box);
     var end = pts[pts.length - 1];
-    svgEl("circle", {"class": "halo", cx: end[0], cy: end[1], r: 7}, box);
     svgEl("circle", {"class": "now", cx: end[0], cy: end[1], r: 3.5}, box);
+  }
+
+  function setRing(id, pct) {
+    var ring = $(id);
+    if (!ring) return;
+    ring.setAttribute("class", "ring" + (pct >= 90 ? " bad" : pct >= 80 ? " warn" : ""));
+    var val = ring.querySelector(".val");
+    requestAnimationFrame(function () { requestAnimationFrame(function () { val.style.strokeDashoffset = 100 - Math.min(100, pct); }); });
   }
 
   function drawBars(id, values) {
@@ -64,7 +72,7 @@
     values.forEach(function (v, i) {
       var b = box.children[i];
       b.className = v / max < 0.25 ? "dim" : "";
-      b.style.transitionDelay = first ? (i * 50) + "ms" : "0ms";
+      b.style.transitionDelay = first ? (i * 15) + "ms" : "0ms";
       requestAnimationFrame(function () { b.style.height = Math.max(5, (v / max) * 100) + "%"; });
     });
   }
@@ -80,7 +88,7 @@
       lab.textContent = d.label;
       w.appendChild(bar); w.appendChild(lab); box.appendChild(w);
       var h = Math.max(12, (d.n / max) * 78);
-      if (first && !calm) { bar.style.transitionDelay = (i * 70) + "ms"; requestAnimationFrame(function () { requestAnimationFrame(function () { bar.style.height = h + "%"; }); }); }
+      if (first && !calm) { bar.style.transitionDelay = (i * 20) + "ms"; requestAnimationFrame(function () { requestAnimationFrame(function () { bar.style.height = h + "%"; }); }); }
       else { bar.style.transition = "none"; bar.style.height = h + "%"; }
     });
   }
@@ -100,12 +108,10 @@
       next[c.cc] = 1;
       var cls = "arc" + (i > 0 ? " minor" : "") + (isNew && !calm ? " draw" : "");
       var arc = svgEl("path", {"class": cls, d: d, pathLength: 1}, layer);
-      if (isNew && !calm) arc.style.animationDelay = (0.3 + i * 0.18) + "s";
-      if (i < 3 && !calm) svgEl("path", {"class": "flow", d: d, pathLength: 1}, layer);
+      if (isNew && !calm) arc.style.animationDelay = (i * 0.04) + "s";
     });
     seenArcs = next;
     var home = svgEl("g", {"class": "home", transform: "translate(" + p.home.x + " " + p.home.y + ")"}, layer);
-    svgEl("circle", {"class": "halo", r: 11}, home);
     svgEl("circle", {r: 5}, home);
   }
 
@@ -170,7 +176,8 @@
       $("map-card").className = "map-card " + lvl;
       $("map-why").textContent = p.why + " · " + p.pressure_text;
     }
-    svg.setAttribute("data-level", p.running ? p.level : 0);
+    if (svg) svg.setAttribute("data-level", p.running ? p.level : 0);
+    var gt = $("gauge-text"); if (gt) gt.textContent = p.pressure_text;
   }
 
   function render(p) {
@@ -178,6 +185,12 @@
     var vd = $("live-verdict");
     if (vd) vd.textContent = p.countries.length ? p.verdict : (p.installed ? "Şu an dışarıdan bağlı kaynak yok." : "Coğrafya veritabanı kurulu değil.");
 
+    if (svg) renderMap(p);
+    renderPanels(p);
+    first = false;
+  }
+
+  function renderMap(p) {
     var max = 0, seen = {};
     p.countries.forEach(function (c) { if (c.n > max) max = c.n; });
     p.countries.forEach(function (c) {
@@ -204,21 +217,25 @@
     });
     drawArcs(p);
     drawCallouts(p.countries);
+  }
 
-    // pano
-    drawLine(p.pps, p.attack_pps);
+  function renderPanels(p) {
+    drawLine("pps-line", p.pps, p.attack_pps);
+    drawLine("syn-line", p.syn_series, p.attack_syn);
     drawBars("mbps-bars", p.mbps);
-    if (p.week) drawWeek(first ? p.week : p.week);
+    if (p.week) drawWeek(p.week);
     countTo("v-pps", p.rx_pps);
     countTo("v-mbps", p.rx_mbps, 1);
     countTo("v-mem", p.mem_pct);
     var att = $("v-attack"); if (att) att.textContent = fmt(p.attack_pps);
-    var ring = $("mem-ring");
-    if (ring) {
-      ring.setAttribute("class", "ring" + (p.mem_pct >= 90 ? " bad" : p.mem_pct >= 80 ? " warn" : ""));
-      var val = ring.querySelector(".val");
-      requestAnimationFrame(function () { requestAnimationFrame(function () { val.style.strokeDashoffset = 100 - p.mem_pct; }); });
-    }
+    setRing("mem-ring", p.mem_pct);
+    setRing("press-ring", p.pressure);
+    countTo("v-press", p.pressure);
+    countTo("v-syn", p.syn);
+    countTo("t-mbps", p.rx_mbps, 1);
+    countTo("t-est", p.established);
+    if (p.conntrack !== null) countTo("t-ct", p.conntrack);
+    var as = $("v-attack-syn"); if (as) as.textContent = fmt(p.attack_syn);
     countTo("v-week", p.week ? p.week.reduce(function (a, d) { return a + d.n; }, 0) : 0);
     countTo("t-total", p.total);
     countTo("t-countries", p.countries.length);
@@ -242,7 +259,6 @@
         ts.appendChild(row([td(s.ip), td(String(s.n)), td(s.country), td(s.flags.length ? s.flags.join(", ") : "-")]));
       });
     }
-    first = false;
   }
 
   function setLive(text, cls) { if (state) { state.textContent = text; state.className = (state.classList.contains("chip") ? "chip " : "badge ") + cls; } }
@@ -264,6 +280,11 @@
         if (band) { band.className = "band lx"; $("band-state").textContent = "BAĞLANTI YOK"; $("band-why").textContent = "Panele ulaşılamıyor; gösterilen veri eski olabilir."; }
       });
   }
+  // Çizim bitince efekti kaldır: non-scaling-stroke dash uzunluğunu kısa hesaplar, çizgi eksik kalırdı.
+  document.addEventListener("animationend", function (ev) {
+    var t = ev.target;
+    if (t.classList && t.classList.contains("draw")) { t.classList.remove("draw"); t.removeAttribute("pathLength"); }
+  });
   poll();
   timer = setInterval(poll, 5000);
   document.addEventListener("visibilitychange", function () {

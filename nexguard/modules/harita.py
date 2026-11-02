@@ -77,6 +77,9 @@ def live_payload() -> dict:
            "pps": [round(x.rx_pps, 1) for x in hist[-36:]], "mbps": [round(x.rx_mbps, 2) for x in hist[-14:]],
            "rx_pps": round(last.rx_pps) if last else 0, "rx_mbps": round(last.rx_mbps, 1) if last else 0,
            "syn": last.syn_recv if last else 0, "attack_pps": ddos.load_thresholds()["rx_pps"][1],
+           "attack_syn": ddos.load_thresholds()["syn_recv"][1], "syn_series": [x.syn_recv for x in hist[-36:]],
+           "established": last.established if last else 0,
+           "conntrack": last.conntrack[0] if last and last.conntrack else None,
            "mem_pct": round(100 * info["mem_used"] / info["mem_total"]) if info["mem_total"] else 0,
            "week": _week()}
     if last:

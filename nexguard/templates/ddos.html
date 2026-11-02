@@ -1,42 +1,57 @@
 {% extends "base.html" %}
 {% block title %}DDoS - NexGuard{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>DDoS izleme</h1><p class="sub">Ağ trafiği ve SYN_RECV örnekleri 5 saniyede bir ölçülür.</p></div>
-  <div class="actions">
-    <a class="btn ghost" href="{{ '/m/ddos' if request.query_params.get('live') else '/m/ddos?live=1' }}">{{ 'Canlı izlemeyi durdur' if request.query_params.get('live') else 'Canlı izle (10 sn)' }}</a>
+<h1 class="skip">DDoS izleme</h1>
+{% set lvl = data.level if data.running else "x" %}
+<div class="dash" id="ddos-live">
+  <div class="dash-left">
+    <section class="tile-card">
+      <div class="head-row"><h2>Gelen bant</h2><span class="chip">Son ölçümler</span></div>
+      <div class="vbars" id="mbps-bars" aria-hidden="true"></div>
+      <div class="big"><span id="v-mbps">0</span><small>Mbit/sn</small></div>
+    </section>
+    <section class="tile-card">
+      <div class="head-row"><h2>SYN_RECV</h2><span class="chip">Son 3 dakika</span></div>
+      <svg id="syn-line" class="line-wide v" viewBox="0 0 360 90" preserveAspectRatio="none" role="img" aria-label="SYN_RECV grafiği"></svg>
+      <div class="foot-row">
+        <div><b id="v-syn">0</b><span class="note">yarı açık bağlantı</span></div>
+        <div><b id="v-attack-syn">-</b><span class="note">saldırı eşiği</span></div>
+      </div>
+    </section>
+    <section class="tile-card">
+      <h2>Eşiğe yakınlık</h2>
+      <svg class="ring" id="press-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="trk" cx="50" cy="50" r="42"/><circle class="val" cx="50" cy="50" r="42" pathLength="100"/></svg>
+      <div class="big"><span id="v-press">0</span><small>%</small></div>
+      <div class="note" id="gauge-text">{{ live.pressure_text }}</div>
+    </section>
   </div>
-</div>
-{% if request.query_params.get('live') %}<meta http-equiv="refresh" content="10">{% endif %}
-
-<section class="panel banner l{{ data.level if data.running else "x" }}">
-  {% if not data.running %}
-  <div class="banner-top"><strong>Durum: bilinmiyor</strong></div>
-  <div class="reason">İzleyici çalışmıyor; ölçüm yapılamıyor. Paneli yeniden başlatın.</div>
-  {% else %}
-  <div class="banner-top"><strong>Durum: {{ data.level_name | upper }}</strong><span class="muted small">{{ data.since }}'den beri</span></div>
-  {% for r in data.reasons %}<div class="reason">{{ r }}</div>{% endfor %}
-  {% if data.level >= 1 %}<div class="reason"><a href="#onlemler">Önlem önerilerine git</a>: SYN çerezleri, kuyruk uzunluğu ve nftables hız sınırı.</div>{% endif %}
-  {% endif %}
-</section>
-
-{% if data.last %}
-<dl class="readouts boxed">
-  <div><dt>Gelen paket</dt><dd>{{ "%.0f"|format(data.last.rx_pps) }}<small>paket/sn</small></dd></div>
-  <div><dt>Gelen bant</dt><dd>{{ "%.1f"|format(data.last.rx_mbps) }}<small>Mbit/sn</small></dd></div>
-  <div><dt>SYN_RECV</dt><dd>{{ data.last.syn_recv }}<small>{{ data.last.established }} kurulmuş bağlantı</small></dd></div>
-  <div><dt>Conntrack</dt>{% if data.last.conntrack %}<dd>{{ data.last.conntrack[0] }}<small>/ {{ data.last.conntrack[1] }}</small></dd>{% else %}<dd class="none">yok<small>bu sistemde ölçülemiyor</small></dd>{% endif %}</div>
-</dl>
-
-<h2 class="section-title">Son dakikalar</h2>
-<div class="grid grid-3">
-  <section class="panel"><div class="eyebrow">Paket/sn</div>{{ data.pps_chart }}</section>
-  <section class="panel"><div class="eyebrow">Mbit/sn</div>{{ data.mbps_chart }}</section>
-  <section class="panel"><div class="eyebrow">SYN_RECV</div>{{ data.syn_chart }}</section>
+  <section class="map-card l{{ lvl }}" id="map-card">
+    <div class="map-top">
+      <span class="state-pill l{{ lvl }}" id="state-pill" role="status" aria-live="polite">{{ live.state_label }}</span>
+      <span class="map-why" id="map-why">{{ live.why }}</span>
+      {% if data.running %}<span class="chip">{{ data.since }}'den beri</span>{% endif %}
+      <span class="chip" id="live-state">bağlanıyor</span>
+    </div>
+    <div class="chart-wrap">
+      <div class="head-row"><h2>Gelen paket</h2><span class="chip">Son 3 dakika</span></div>
+      <svg id="pps-line" class="line-wide" viewBox="0 0 900 280" preserveAspectRatio="none" role="img" aria-label="Gelen paket hızı grafiği"></svg>
+    </div>
+    <div class="float">
+      <div class="head-row"><h2>Şu anki ölçüm</h2><a class="link-btn" href="#onlemler">Önlem önerileri</a></div>
+      <p>Ağ ve bağlantı tablosu 5 saniyede bir okunur.{% if not data.running %} İzleyici çalışmıyor.{% endif %}</p>
+      <div class="tiles">
+        <div class="t o"><span>Paket</span><b id="t-pps">0</b><small>paket/sn</small></div>
+        <div class="t v"><span>Bant</span><b id="t-mbps">0</b><small>Mbit/sn</small></div>
+        <div class="t a"><span>SYN_RECV</span><b id="t-syn">0</b><small>yarı açık</small></div>
+        <div class="t e"><span>Kurulu</span><b id="t-est">0</b><small>bağlantı</small></div>
+        <div class="t g"><span>Conntrack</span><b id="t-ct">{{ "-" if not (data.last and data.last.conntrack) else "" }}</b><small>{{ "bu sistemde yok" if not (data.last and data.last.conntrack) else "/ %d" % data.last.conntrack[1] }}</small></div>
+      </div>
+    </div>
+  </section>
 </div>
 
-<h2 class="section-title">Trafik kaynakları</h2>
-<section class="panel">
+<div class="split">
+  <section><h2>Trafik kaynakları</h2>{% if data.last %}
 {% if data.geo %}
   <p>{{ data.geo.verdict }}</p>
   <div class="tscroll"><table><thead><tr><th>Ülke</th><th>IP</th><th>Bağlantı</th><th>Aracı</th></tr></thead><tbody>
@@ -49,27 +64,16 @@
   {% for ip, n in data.last.top_ips %}<tr><td>{{ ip }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table></div>
 {% else %}<p class="muted">Dışarıdan bağlantı yok.</p>{% endif %}
 {% if not data.geo_status.installed %}<p class="muted small">Ülke ve ağ bilgisi için <a href="/m/geoip">Coğrafya</a> veritabanını kurun.</p>{% endif %}
-</section>
-{% else %}
-<section class="panel empty"><span>Henüz örnek yok; izleyici 5 sn'de bir ölçer.</span></section>
-{% endif %}
-
-<h2 class="section-title">Saldırı kaydı</h2>
-<section class="panel">
+{% else %}<p class="muted">Henüz örnek yok; izleyici 5 sn'de bir ölçer.</p>{% endif %}</section>
+  <section><h2>Saldırı kaydı</h2>
 {% if data.attacks %}<div class="tscroll"><table><thead><tr><th>Başlangıç</th><th>Bitiş</th><th>Seviye</th><th>Tepe paket/sn</th><th>Tepe Mbit/sn</th><th>Tepe SYN</th><th>Kaynak</th></tr></thead><tbody>
 {% for a in data.attacks %}<tr><td>{{ a.started }}</td><td>{{ a.ended or "sürüyor" }}</td><td>{{ "saldırı" if a.level >= 2 else "uyarı" }}</td><td>{{ "%.0f"|format(a.pps or 0) }}</td><td>{{ "%.1f"|format(a.mbps or 0) }}</td><td>{{ a.syn or 0 }}</td>
 <td>{% for c in a.countries %}{{ c.country }}{{ ", " if not loop.last }}{% else %}-{% endfor %}{% if a.anon_pct %} <span class="muted small">(%{{ a.anon_pct }} aracı)</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
 {% else %}<p class="muted">Kayıtlı saldırı yok.</p>{% endif %}
 </section>
-
-<h2 class="section-title">Bildirim</h2>
-<div class="panel inline">
-  <p class="grow">{% if data.notify.any %}Kanal: {{ "Telegram " if data.notify.telegram }}{{ "Webhook" if data.notify.webhook }}. Seviye yükselince ve normale dönünce bildirilir (aynı seviye için 5 dk bekleme).{% else %}Bildirim kanalı yok. <a href="/settings">Ayarlar</a>'dan Telegram veya webhook ekleyin.{% endif %}</p>
-  <form method="post" action="/m/ddos/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Test gönder</button></form>
 </div>
-
-<h2 class="section-title">Eşikler</h2>
-<form method="post" action="/m/ddos/thresholds" class="panel">
+<div class="split">
+  <form method="post" action="/m/ddos/thresholds" class="wide-form"><h2>Eşikler</h2>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="tscroll"><table><thead><tr><th>Metrik</th><th>Uyarı</th><th>Saldırı</th><th>Birim</th></tr></thead><tbody>
   {% for name, t in data.thresholds.items() %}<tr><td>{{ t.label }}</td>
@@ -78,20 +82,21 @@
   </tbody></table></div>
   <p><button>Kaydet</button></p>
 </form>
-
-<h2 class="section-title" id="onlemler">Önlem önerileri</h2>
-<div class="panel">
+  <section><h2>Bildirim</h2><div class="inline">
+  <p class="grow">{% if data.notify.any %}Kanal: {{ "Telegram " if data.notify.telegram }}{{ "Webhook" if data.notify.webhook }}. Seviye yükselince ve normale dönünce bildirilir (aynı seviye için 5 dk bekleme).{% else %}Bildirim kanalı yok. <a href="/settings">Ayarlar</a>'dan Telegram veya webhook ekleyin.{% endif %}</p>
+  <form method="post" action="/m/ddos/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Test gönder</button></form>
+</div><h2 class="mt">Son DDoS olayları</h2>
+{% if data.events %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>Seviye</th><th>Mesaj</th></tr></thead><tbody>
+{% for e in data.events %}<tr><td>{{ e.ts }}</td><td><span class="badge {{ e.level }}">{{ {'info':'Bilgi','warning':'Uyarı','error':'Hata'}.get(e.level, e.level) }}</span></td><td>{{ e.message }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<p class="muted">Kayıtlı olay yok.</p>{% endif %}</section>
+</div>
+<section class="wide"><h2 id="onlemler">Önlem önerileri</h2>
   <p class="muted">Panel root olmadan çalışır, bu yüzden kural uygulamaz. Aşağıdakiler sizin onayınızla uygulayacağınız önerilerdir.</p>
   <div class="tscroll"><table><thead><tr><th>Çekirdek ayarı</th><th>Şu an</th><th>Önerilen</th><th></th></tr></thead><tbody>
   {% for s in data.sysctl %}<tr><td><code>{{ s.name }}</code></td><td>{{ s.cur }}</td><td>{{ s.want }}</td><td>{{ "tamam" if s.ok else s.why }}</td></tr>{% endfor %}</tbody></table></div>
   <details><summary>nftables hız sınırı / otomatik engel şablonu</summary><pre>{{ data.nft }}</pre>
   <p class="muted small">Bu şablon henüz bu makinede test edilmedi. Uygulamadan önce <code>nft -c -f</code> ile doğrulayın ve SSH oturumunuzu kaybetmemek için ikinci bir bağlantı açık tutun.</p></details>
   <p class="muted small"><strong>Önemli:</strong> Hat doyuran (volumetrik) saldırılar sunucuda durdurulamaz; trafik size ulaşmadan önce sağlayıcı veya Cloudflare gibi bir ön katman gerekir. Bu modül tespit, bildirim ve uygulama katmanı sertleştirmesi içindir.</p>
-</div>
-
-<h2 class="section-title">Son DDoS olayları</h2>
-<div class="panel">
-{% if data.events %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>Seviye</th><th>Mesaj</th></tr></thead><tbody>
-{% for e in data.events %}<tr><td>{{ e.ts }}</td><td><span class="lvl {{ e.level }}">{{ e.level }}</span></td><td>{{ e.message }}</td></tr>{% endfor %}</tbody></table></div>
-{% else %}<p class="muted">Kayıtlı olay yok.</p>{% endif %}</div>
+</section>
+<script src="/static/harita.js" defer></script>
 {% endblock %}
