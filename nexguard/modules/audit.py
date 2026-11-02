@@ -4,7 +4,7 @@ import time
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
-from .. import checks, db
+from .. import charts, checks, db
 from . import Module
 
 router = APIRouter()
@@ -33,8 +33,24 @@ def collect() -> dict:
     return {"result": result, "counts": counts}
 
 
+def summary() -> dict:
+    data = collect()
+    result, counts = data["result"], data["counts"]
+    base = {"slug": "audit", "title": "Güvenlik denetimi"}
+    if not result:
+        return {**base, "status": "idle", "headline": "Taranmadı",
+                "detail": "Denetim henüz çalıştırılmadı.",
+                "visual": charts.donut(0, center="–", sub="skor", state="idle", size=92)}
+    grade = result["grade"]
+    state = "ok" if grade in ("A", "B") else "warn" if grade == "C" else "bad"
+    bad = counts.get("high", 0) + counts.get("medium", 0)
+    detail = f"{bad} önemli bulgu · son tarama {result['ts'][11:16]}" if bad else f"Önemli bulgu yok · {result['ts'][11:16]}"
+    return {**base, "status": state, "headline": f"Skor {result['score']} ({grade})", "detail": detail,
+            "visual": charts.donut(result["score"], center=str(result["score"]), sub=grade, state=state, size=92)}
+
+
 module = Module(
     slug="audit", title="Denetim",
     description="Genel güvenlik ve OPSEC taraması. Yalnızca okur; düzeltme komutlarını gösterir, uygulamaz.",
-    collect=collect, order=10, template="audit.html", router=router,
+    collect=collect, order=10, template="audit.html", router=router, summary=summary,
 )

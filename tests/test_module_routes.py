@@ -65,3 +65,12 @@ def test_notify_send_reports_errors_without_leaking_token(env, monkeypatch):
     monkeypatch.setattr(notify, "_post", boom)
     res = notify.send("x")
     assert res == [("telegram", False, "OSError")] and secret not in repr(res)
+
+
+def test_geoip_page_and_lookup_validation(env):
+    client, _ = env
+    do_login(client)
+    assert client.get("/m/geoip").status_code == 200
+    tok = csrf_from(client, "/m/geoip")
+    assert client.post("/m/geoip/lookup", data={"csrf": tok, "ip": "not-an-ip"}).status_code == 303
+    assert client.post("/m/geoip/lookup", data={"ip": "1.1.1.1"}).status_code in (400, 403)  # CSRF yok

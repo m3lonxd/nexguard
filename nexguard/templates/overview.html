@@ -1,27 +1,87 @@
 {% extends "base.html" %}
+{% block title %}Genel Bakış - NexGuard{% endblock %}
 {% block content %}
-<h1>Genel Bakış</h1>
-<div class="grid">
-  <div class="card"><h2>Sistem</h2>
-    <dl><dt>Ana makine</dt><dd>{{ info.hostname }}</dd>
-    <dt>Çekirdek</dt><dd>{{ info.kernel }}</dd>
-    <dt>Çalışma süresi</dt><dd>{{ info.uptime_seconds | uptime }}</dd></dl></div>
-  <div class="card"><h2>Yük</h2>
-    <p class="big">{{ info.load[0] }}</p>
-    <p class="muted">5 dk {{ info.load[1] }} · 15 dk {{ info.load[2] }} · {{ info.cpus }} çekirdek</p></div>
-  <div class="card"><h2>Bellek</h2>
-    <progress max="{{ info.mem_total }}" value="{{ info.mem_used }}"></progress>
-    <p class="muted">{{ info.mem_used | hb }} / {{ info.mem_total | hb }}</p></div>
-  <div class="card"><h2>Disk (/)</h2>
-    <progress max="{{ info.disk_total }}" value="{{ info.disk_used }}"></progress>
-    <p class="muted">{{ info.disk_used | hb }} / {{ info.disk_total | hb }}</p></div>
+<div class="page-head">
+  <div>
+    <h1>Genel Bakış</h1>
+    <p class="sub">{{ info.hostname }} · {{ info.kernel }} · {{ info.uptime_seconds | uptime }}</p>
+  </div>
 </div>
-<h2>Son olaylar</h2>
-<div class="card">
-{% if events %}
-<table><thead><tr><th>Zaman</th><th>Modül</th><th>Seviye</th><th>Mesaj</th></tr></thead><tbody>
-{% for e in events %}<tr><td>{{ e.ts }}</td><td>{{ e.module }}</td><td><span class="lvl {{ e.level }}">{{ e.level }}</span></td><td>{{ e.message }}</td></tr>{% endfor %}
-</tbody></table>
-{% else %}<p class="muted">Henüz olay yok.</p>{% endif %}
+
+{% if summaries %}
+<div class="grid grid-auto">
+  {% for s in summaries %}
+  <section class="panel summary {{ s.status }}">
+    <div class="summary-main">
+      <span class="eyebrow">{{ s.title }}</span>
+      <strong class="summary-head">{{ s.headline }}</strong>
+      <p>{{ s.detail }}</p>
+      <a class="link-btn" href="/m/{{ s.slug }}">Modülü aç →</a>
+    </div>
+    <div class="visual">{{ s.visual }}</div>
+  </section>
+  {% endfor %}
 </div>
+{% endif %}
+
+<h2 class="section-title">Sistem</h2>
+<div class="grid grid-4">
+  <div class="panel stat">
+    <span class="eyebrow">Yük (1 dk)</span>
+    <p class="stat-value">{{ info.load[0] }}</p>
+    <p class="stat-sub">5 dk {{ info.load[1] }} · 15 dk {{ info.load[2] }} · {{ info.cpus }} çekirdek</p>
+  </div>
+  <div class="panel stat">
+    <span class="eyebrow">Bellek</span>
+    <div class="stat-flex">
+      {{ mem_donut }}
+      <div class="stat-body">
+        <p class="stat-value small">{{ info.mem_used | hb }}</p>
+        <p class="stat-sub">{{ info.mem_total | hb }} toplam</p>
+      </div>
+    </div>
+  </div>
+  <div class="panel stat">
+    <span class="eyebrow">Disk (/)</span>
+    <div class="stat-flex">
+      {{ disk_donut }}
+      <div class="stat-body">
+        <p class="stat-value small">{{ info.disk_used | hb }}</p>
+        <p class="stat-sub">{{ info.disk_total | hb }} toplam</p>
+      </div>
+    </div>
+  </div>
+  <div class="panel stat">
+    <span class="eyebrow">Çalışma süresi</span>
+    <p class="stat-value small">{{ info.uptime_seconds | uptime }}</p>
+    <p class="stat-sub">Son 24 saatte {{ warn24 }} uyarı veya hata</p>
+  </div>
+</div>
+
+<h2 class="section-title">Son olaylar</h2>
+<section class="panel">
+  <div class="panel-head">
+    <h2>Olay günlüğü</h2>
+    <div class="actions"><a class="link-btn" href="/m/audit">Denetimi aç →</a></div>
+  </div>
+  {% if events %}
+  <div class="scroll">
+    <div class="tscroll"><table>
+      <thead><tr><th>Zaman</th><th>Modül</th><th>Seviye</th><th>Mesaj</th></tr></thead>
+      <tbody>
+      {% for e in events %}
+      <tr>
+        <td class="nowrap mono">{{ e.ts }}</td>
+        <td class="nowrap">{{ e.module }}</td>
+        <td><span class="badge {{ e.level }}">{{ e.level }}</span></td>
+        <td>{{ e.message }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  {% else %}
+  <div class="empty"><span>Henüz olay yok.</span><span class="tiny">Denetim ve DDoS olayları burada listelenir.</span></div>
+  {% endif %}
+</section>
 {% endblock %}
