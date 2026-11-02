@@ -4,6 +4,7 @@
 
 <p align="center">
   <b>Sunucunun güvenlik durumunu tek ekranda gösteren, tamamen yerel çalışan panel.</b><br>
+  <a href="https://nexguard.duckdns.org">nexguard.duckdns.org</a>
   Veri makineden çıkmaz. Panel öneri sunar, hiçbir şeyi kendi kendine değiştirmez.
 </p>
 
