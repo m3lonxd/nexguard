@@ -192,7 +192,7 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
             return render(request, "notfound.html", 404, page="")
         from .modules import harita
         return render(request, mod.template, mod=mod, data=mod.collect(), page=slug,
-                      flush=slug in ("harita", "ddos", "audit", "geoip"), live=harita.live_payload())
+                      flush=slug in ("harita", "ddos", "audit", "geoip", "tuzak"), live=harita.live_payload())
 
     @app.get("/settings", response_class=HTMLResponse)
     async def settings(request: Request):
