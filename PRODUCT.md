@@ -26,7 +26,7 @@ Panel `127.0.0.1` üzerinde çalışır, uzak erişim SSH tüneliyle yapılır. 
 - Teknoloji: FastAPI, Jinja2 şablonları, tek CSS dosyası, kısıtlı CSP (yalnızca kendi kaynağından script ve stil).
 
 ## Brand Commitments
-Ad: NexGuard. Arayüz dili Türkçe. Kullanıcı arayüzünde emoji yok; ikonlar SVG. Kullanıcı, mevcut arayüzü "çok AI slop" buldu: jenerik, gradyanlı, süslü görünüm istenmiyor.
+Ad: NexGuard. Arayüz dili Türkçe. Kullanıcı arayüzünde emoji yok; ikonlar SVG. Kullanıcı, mevcut arayüzü "çok AI slop" buldu: jenerik, gradyanlı, süslü görünüm istenmiyor. Bağlayıcı görsel referans (Ömer, 2026-11-02): Musemind "VEXORA" panosu (dribbble.com/shots/26980609): kömür zemin, yuvarlak paneller, hap menü, sağda dev harita ve süzülen panel, renkli metrik karoları, sayarak yerine oturan sayılar.
 
 ## Evidence on Hand
 Çalışan bir kod tabanı ve 37 otomatik test (`tests/`). Gerçek müşteri, referans, kıyaslama ya da fiyat verisi yok; bunlar uydurulmamalıdır.
@@ -36,7 +36,7 @@ Ad: NexGuard. Arayüz dili Türkçe. Kullanıcı arayüzünde emoji yok; ikonlar
 2. Dürüstlük: ürün neyi göremediğini ve neyi yapamadığını açıkça söyler.
 3. Veri makineden çıkmaz; gizlilik bir özelliktir ve arayüzde de hissedilir.
 4. Panel öneri sunar, kullanıcı onaylamadan hiçbir şeyi değiştirmez.
-5. Yoğun ama sakin: güvenlik aracı bağırmaz; renk yalnızca gerçek bir durumu işaret eder.
+5. Yoğun ama sakin: durum (normal, uyarı, saldırı) renkle ve metinle her zaman ayırt edilir; karo renkleri kimlik taşır, durum bildirmez. Grafikler ve sayılar yalnız gerçek veriden gelir.
 
 ## Accessibility & Inclusion
 Mobil ve masaüstünde kullanılabilir olmalı. Renk tek başına anlam taşımamalı (durum metinle de belirtilir). Hareket azaltma tercihine saygı duyulur.

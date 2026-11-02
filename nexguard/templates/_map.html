@@ -1,7 +1,8 @@
 <svg id="worldmap" data-level="{{ live.level }}" viewBox="0 10 {{ world.w }} 400" role="img" aria-label="Dünya haritası: bağlantı kaynakları" preserveAspectRatio="xMidYMid meet">
   <g class="land">{% for cc, d in world.paths.items() %}{% if cc != 'AQ' %}<path id="c-{{ cc }}" d="{{ d }}"/>{% endif %}{% endfor %}</g>
+  <g id="arcs"></g>
   <g id="dots"></g>
   <g id="callouts"></g>
 </svg>
-<div class="map-legend"><span>Az</span><i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i><span>Çok bağlantı</span><span class="anon-key"><i class="anon"></i> Çoğu aracı ağdan (VPN, Tor, barındırma)</span></div>
+<div class="map-legend"><span>Az</span><i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i><span>Çok bağlantı</span><span class="anon-key"><i class="anon"></i> Çoğu aracı ağdan</span><span class="anon-key"><i class="anon home-key"></i> Bu sunucu (saat dilimine göre)</span></div>
 <div id="map-tip" class="map-tip" hidden></div>
