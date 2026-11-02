@@ -1,60 +1,92 @@
 {% extends "base.html" %}
 {% block title %}DDoS - NexGuard{% endblock %}
 {% block content %}
-<h1>DDoS izleme</h1>
-<div class="card banner l{{ data.level }}">
-  <strong>Durum: {{ data.level_name | upper }}</strong> <span class="muted small">({{ data.since }}'den beri)</span>
-  {% for r in data.reasons %}<div class="small">{{ r }}</div>{% endfor %}
-  {% if not data.running %}<div class="small">İzleyici çalışmıyor.</div>{% endif %}
-  <p class="small"><a href="/m/ddos?live=1">Canlı izle (10 sn yenile)</a>{% if request.query_params.get('live') %} · <a href="/m/ddos">Durdur</a>{% endif %}</p>
+<div class="page-head">
+  <div><h1>DDoS izleme</h1><p class="sub">Ağ trafiği ve SYN_RECV örnekleri 5 saniyede bir ölçülür.</p></div>
+  <div class="actions">
+    <a class="btn ghost" href="{{ '/m/ddos' if request.query_params.get('live') else '/m/ddos?live=1' }}">{{ 'Canlı izlemeyi durdur' if request.query_params.get('live') else 'Canlı izle (10 sn)' }}</a>
+  </div>
 </div>
 {% if request.query_params.get('live') %}<meta http-equiv="refresh" content="10">{% endif %}
-{% if data.last %}
-<div class="grid">
-  <div class="card"><h2>Gelen paket</h2><p class="big">{{ "%.0f"|format(data.last.rx_pps) }}</p><p class="muted">paket/sn</p>
-    {% if data.pps_points %}<svg viewBox="0 0 300 50" class="spark" aria-hidden="true"><polyline points="{{ data.pps_points }}"/></svg>{% endif %}</div>
-  <div class="card"><h2>Gelen bant</h2><p class="big">{{ "%.1f"|format(data.last.rx_mbps) }}</p><p class="muted">Mbit/sn</p></div>
-  <div class="card"><h2>SYN_RECV</h2><p class="big">{{ data.last.syn_recv }}</p><p class="muted">{{ data.last.established }} kurulmuş bağlantı</p>
-    {% if data.syn_points %}<svg viewBox="0 0 300 50" class="spark" aria-hidden="true"><polyline points="{{ data.syn_points }}"/></svg>{% endif %}</div>
-  <div class="card"><h2>Conntrack</h2>{% if data.last.conntrack %}<p class="big">{{ data.last.conntrack[0] }}</p><p class="muted">/ {{ data.last.conntrack[1] }}</p>{% else %}<p class="muted">Bu sistemde yok</p>{% endif %}</div>
-</div>
-<h2>En çok bağlanan IP'ler</h2>
-<div class="card">
-{% if data.last.top_ips %}<table><thead><tr><th>IP</th><th>Bağlantı</th></tr></thead><tbody>
-{% for ip, n in data.last.top_ips %}<tr><td>{{ ip }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table>
-{% else %}<p class="muted">Dışarıdan bağlantı yok.</p>{% endif %}</div>
-{% else %}<div class="card"><p class="muted">Henüz örnek yok; izleyici 5 sn'de bir ölçer.</p></div>{% endif %}
 
-<h2>Bildirim</h2>
-<div class="card row">
+<section class="panel banner l{{ data.level }}">
+  <div class="banner-top"><strong>Durum: {{ data.level_name | upper }}</strong><span class="muted small">{{ data.since }}'den beri</span></div>
+  {% for r in data.reasons %}<div class="reason">{{ r }}</div>{% endfor %}
+  {% if not data.running %}<div class="reason">İzleyici çalışmıyor.</div>{% endif %}
+</section>
+
+{% if data.last %}
+<div class="grid grid-4" style="margin-top:14px">
+  <div class="panel stat"><div class="eyebrow">Gelen paket</div><p class="stat-value">{{ "%.0f"|format(data.last.rx_pps) }}</p><p class="stat-sub">paket/sn</p></div>
+  <div class="panel stat"><div class="eyebrow">Gelen bant</div><p class="stat-value">{{ "%.1f"|format(data.last.rx_mbps) }}</p><p class="stat-sub">Mbit/sn</p></div>
+  <div class="panel stat"><div class="eyebrow">SYN_RECV</div><p class="stat-value">{{ data.last.syn_recv }}</p><p class="stat-sub">{{ data.last.established }} kurulmuş bağlantı</p></div>
+  <div class="panel stat"><div class="eyebrow">Conntrack</div>{% if data.last.conntrack %}<p class="stat-value">{{ data.last.conntrack[0] }}</p><p class="stat-sub">/ {{ data.last.conntrack[1] }}</p>{% else %}<p class="stat-sub">Bu sistemde yok</p>{% endif %}</div>
+</div>
+
+<h2 class="section-title">Son dakikalar</h2>
+<div class="grid grid-2">
+  <section class="panel"><div class="eyebrow">Paket/sn</div>{{ data.pps_chart }}</section>
+  <section class="panel"><div class="eyebrow">Mbit/sn</div>{{ data.mbps_chart }}</section>
+</div>
+<div class="grid grid-2" style="margin-top:14px"><section class="panel"><div class="eyebrow">SYN_RECV</div>{{ data.syn_chart }}</section></div>
+
+<h2 class="section-title">Trafik kaynakları</h2>
+<section class="panel">
+{% if data.geo %}
+  <p>{{ data.geo.verdict }}</p>
+  <div class="tscroll"><table><thead><tr><th>Ülke</th><th>IP</th><th>Bağlantı</th><th>Aracı</th></tr></thead><tbody>
+  {% for c in data.geo.countries %}<tr><td>{{ c.country }}</td><td>{{ c.ips }}</td><td>{{ c.n }}</td><td>{{ "%d"|format(100 * c.anon / c.n) if c.n else 0 }}%</td></tr>{% endfor %}</tbody></table></div>
+  <details style="margin-top:10px"><summary>IP ayrıntıları</summary>
+  <div class="tscroll"><table><thead><tr><th>IP</th><th>Bağlantı</th><th>Ülke</th><th>Ağ</th><th>İşaret</th></tr></thead><tbody>
+  {% for r in data.geo.sources %}<tr><td>{{ r.ip }}</td><td>{{ r.n }}</td><td>{{ r.country }}</td><td>{% if r.asn %}AS{{ r.asn }} {{ r.org }}{% else %}-{% endif %}</td><td>{{ r.flags | join(", ") if r.flags else "-" }}</td></tr>{% endfor %}</tbody></table></div></details>
+{% elif data.last.top_ips %}
+  <div class="tscroll"><table><thead><tr><th>IP</th><th>Bağlantı</th></tr></thead><tbody>
+  {% for ip, n in data.last.top_ips %}<tr><td>{{ ip }}</td><td>{{ n }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<p class="muted" style="margin:0">Dışarıdan bağlantı yok.</p>{% endif %}
+{% if not data.geo_status.installed %}<p class="muted small">Ülke ve ağ bilgisi için <a href="/m/geoip">Coğrafya</a> veritabanını kurun.</p>{% endif %}
+</section>
+{% else %}
+<section class="panel empty"><span>Henüz örnek yok; izleyici 5 sn'de bir ölçer.</span></section>
+{% endif %}
+
+<h2 class="section-title">Saldırı kaydı</h2>
+<section class="panel">
+{% if data.attacks %}<div class="tscroll"><table><thead><tr><th>Başlangıç</th><th>Bitiş</th><th>Seviye</th><th>Tepe paket/sn</th><th>Tepe Mbit/sn</th><th>Tepe SYN</th><th>Kaynak</th></tr></thead><tbody>
+{% for a in data.attacks %}<tr><td>{{ a.started }}</td><td>{{ a.ended or "sürüyor" }}</td><td>{{ "saldırı" if a.level >= 2 else "uyarı" }}</td><td>{{ "%.0f"|format(a.pps or 0) }}</td><td>{{ "%.1f"|format(a.mbps or 0) }}</td><td>{{ a.syn or 0 }}</td>
+<td>{% for c in a.countries %}{{ c.country }}{{ ", " if not loop.last }}{% else %}-{% endfor %}{% if a.anon_pct %} <span class="muted small">(%{{ a.anon_pct }} aracı)</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<p class="muted" style="margin:0">Kayıtlı saldırı yok.</p>{% endif %}
+</section>
+
+<h2 class="section-title">Bildirim</h2>
+<div class="panel inline">
   <p class="grow">{% if data.notify.any %}Kanal: {{ "Telegram " if data.notify.telegram }}{{ "Webhook" if data.notify.webhook }}. Seviye yükselince ve normale dönünce bildirilir (aynı seviye için 5 dk bekleme).{% else %}Bildirim kanalı yok. <a href="/settings">Ayarlar</a>'dan Telegram veya webhook ekleyin.{% endif %}</p>
   <form method="post" action="/m/ddos/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Test gönder</button></form>
 </div>
 
-<h2>Eşikler</h2>
-<form method="post" action="/m/ddos/thresholds" class="card">
+<h2 class="section-title">Eşikler</h2>
+<form method="post" action="/m/ddos/thresholds" class="panel">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <table><thead><tr><th>Metrik</th><th>Uyarı</th><th>Saldırı</th><th>Birim</th></tr></thead><tbody>
+  <div class="tscroll"><table><thead><tr><th>Metrik</th><th>Uyarı</th><th>Saldırı</th><th>Birim</th></tr></thead><tbody>
   {% for name, t in data.thresholds.items() %}<tr><td>{{ t.label }}</td>
     <td><input name="{{ name }}_warn" type="number" min="1" value="{{ t.warn }}" required></td>
     <td><input name="{{ name }}_attack" type="number" min="2" value="{{ t.attack }}" required></td><td class="muted">{{ t.unit }}</td></tr>{% endfor %}
-  </tbody></table>
+  </tbody></table></div>
   <p><button>Kaydet</button></p>
 </form>
 
-<h2>Önlem önerileri</h2>
-<div class="card">
+<h2 class="section-title">Önlem önerileri</h2>
+<div class="panel">
   <p class="muted">Panel root olmadan çalışır, bu yüzden kural uygulamaz. Aşağıdakiler sizin onayınızla uygulayacağınız önerilerdir.</p>
-  <table><thead><tr><th>Çekirdek ayarı</th><th>Şu an</th><th>Önerilen</th><th></th></tr></thead><tbody>
-  {% for s in data.sysctl %}<tr><td><code>{{ s.name }}</code></td><td>{{ s.cur }}</td><td>{{ s.want }}</td><td>{{ "tamam" if s.ok else s.why }}</td></tr>{% endfor %}</tbody></table>
+  <div class="tscroll"><table><thead><tr><th>Çekirdek ayarı</th><th>Şu an</th><th>Önerilen</th><th></th></tr></thead><tbody>
+  {% for s in data.sysctl %}<tr><td><code>{{ s.name }}</code></td><td>{{ s.cur }}</td><td>{{ s.want }}</td><td>{{ "tamam" if s.ok else s.why }}</td></tr>{% endfor %}</tbody></table></div>
   <details><summary>nftables hız sınırı / otomatik engel şablonu</summary><pre>{{ data.nft }}</pre>
   <p class="muted small">Bu şablon henüz bu makinede test edilmedi. Uygulamadan önce <code>nft -c -f</code> ile doğrulayın ve SSH oturumunuzu kaybetmemek için ikinci bir bağlantı açık tutun.</p></details>
   <p class="muted small"><strong>Önemli:</strong> Hat doyuran (volumetrik) saldırılar sunucuda durdurulamaz; trafik size ulaşmadan önce sağlayıcı veya Cloudflare gibi bir ön katman gerekir. Bu modül tespit, bildirim ve uygulama katmanı sertleştirmesi içindir.</p>
 </div>
 
-<h2>Son DDoS olayları</h2>
-<div class="card">
-{% if data.events %}<table><thead><tr><th>Zaman</th><th>Seviye</th><th>Mesaj</th></tr></thead><tbody>
-{% for e in data.events %}<tr><td>{{ e.ts }}</td><td><span class="lvl {{ e.level }}">{{ e.level }}</span></td><td>{{ e.message }}</td></tr>{% endfor %}</tbody></table>
+<h2 class="section-title">Son DDoS olayları</h2>
+<div class="panel">
+{% if data.events %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>Seviye</th><th>Mesaj</th></tr></thead><tbody>
+{% for e in data.events %}<tr><td>{{ e.ts }}</td><td><span class="lvl {{ e.level }}">{{ e.level }}</span></td><td>{{ e.message }}</td></tr>{% endfor %}</tbody></table></div>
 {% else %}<p class="muted">Kayıtlı olay yok.</p>{% endif %}</div>
 {% endblock %}

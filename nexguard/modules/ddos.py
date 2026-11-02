@@ -285,12 +285,26 @@ def start() -> None:
 
 # --- Arayüz verisi -----------------------------------------------------------
 
-def _points(values: list[float], w: int = 300, h: int = 50) -> str:
-    if len(values) < 2:
-        return ""
-    top = max(max(values), 1)
-    step = w / (len(values) - 1)
-    return " ".join(f"{i * step:.1f},{h - (v / top) * (h - 4) - 2:.1f}" for i, v in enumerate(values))
+def _series(hist: list[Sample], attr: str) -> list[float]:
+    return [float(getattr(s, attr)) for s in hist]
+
+
+def _recent_attacks(limit: int = 8) -> list[dict]:
+    with db.session() as conn:
+        rows = conn.execute("SELECT * FROM attacks ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    out = []
+    for row in rows:
+        try:
+            geo = json.loads(row["summary"]) if row["summary"] else None
+        except (ValueError, TypeError):
+            geo = None
+        out.append({
+            "id": row["id"], "started": row["started"], "ended": row["ended"],
+            "level": row["peak_level"], "pps": row["peak_pps"], "mbps": row["peak_mbps"],
+            "syn": row["peak_syn"], "countries": (geo or {}).get("countries", [])[:4],
+            "verdict": (geo or {}).get("verdict", ""), "anon_pct": (geo or {}).get("anon_pct", 0),
+        })
+    return out
 
 
 SYSCTL_ADVICE = [
@@ -326,20 +340,56 @@ def collect() -> dict:
         level, reasons, since = monitor.level, list(monitor.reasons), monitor.since
     last = hist[-1] if hist else None
     th = load_thresholds()
-    events = []
     with db.session() as conn:
         events = conn.execute("SELECT * FROM events WHERE module='ddos' ORDER BY id DESC LIMIT 10").fetchall()
     sysctl = []
     for name, path, want, why in SYSCTL_ADVICE:
         cur = _read(f"/proc/sys/{path}").strip() or "?"
-        sysctl.append({"name": name, "cur": cur, "want": want, "why": why,
-                       "ok": cur == want or (name.endswith("backlog") or name.endswith("somaxconn")) and cur.isdigit() and int(cur) >= int(want)})
+        ok = cur == want or ((name.endswith("backlog") or name.endswith("somaxconn"))
+                             and cur.isdigit() and int(cur) >= int(want))
+        sysctl.append({"name": name, "cur": cur, "want": want, "why": why, "ok": ok})
+    pps = _series(hist, "rx_pps")
+    geo = geoip.summarize(last.per_ip[:20]) if last and last.per_ip else None
     return {
-        "level": level, "level_name": LEVELS[level], "reasons": reasons, "since": time.strftime("%H:%M:%S", time.localtime(since)),
-        "last": last, "running": _started, "pps_points": _points([s.rx_pps for s in hist]),
-        "syn_points": _points([s.syn_recv for s in hist]), "samples": len(hist),
-        "thresholds": {n: {"warn": th[n][0], "attack": th[n][1], "label": LABELS[n], "unit": DEFAULTS[n][2]} for n in DEFAULTS},
+        "level": level, "level_name": LEVELS[level], "reasons": reasons,
+        "since": time.strftime("%H:%M:%S", time.localtime(since)),
+        "last": last, "running": _started, "samples": len(hist),
+        "pps": pps, "pps_chart": charts.line_chart(
+            pps, unit="paket/sn", warn=th["rx_pps"][0], attack=th["rx_pps"][1], cls="c1"),
+        "mbps_chart": charts.line_chart(
+            _series(hist, "rx_mbps"), unit="Mbit/sn", warn=th["rx_mbps"][0], attack=th["rx_mbps"][1], cls="c2"),
+        "syn_chart": charts.line_chart(
+            _series(hist, "syn_recv"), unit="bağlantı", warn=th["syn_recv"][0], attack=th["syn_recv"][1], cls="c3"),
+        "geo": geo, "geo_status": geoip.status(), "attacks": _recent_attacks(),
+        "thresholds": {n: {"warn": th[n][0], "attack": th[n][1], "label": LABELS[n], "unit": DEFAULTS[n][2]}
+                       for n in DEFAULTS},
         "events": events, "sysctl": sysctl, "nft": NFT_TEMPLATE, "notify": notify.status(),
+    }
+
+
+def summary() -> dict:
+    with monitor._lock:
+        hist = list(monitor.history)
+        level = monitor.level
+        reasons = list(monitor.reasons)
+    th = load_thresholds()
+    base = {"slug": "ddos", "title": "DDoS izleme"}
+    if not hist:
+        return {**base, "status": "idle", "headline": "Ölçüm bekleniyor",
+                "detail": "İzleyici 5 saniyede bir örnek alır.",
+                "visual": charts.line_chart([0, 0], spark=True, cls="c1")}
+    last = hist[-1]
+    state = ("ok", "warn", "bad")[level]
+    if reasons:
+        detail = reasons[0]
+    else:
+        detail = f"{last.rx_pps:.0f} paket/sn · {last.rx_mbps:.1f} Mbit/sn"
+    return {
+        **base, "status": state,
+        "headline": {"normal": "Normal", "yüksek": "Yüksek yük", "saldırı": "Saldırı"}[LEVELS[level]],
+        "detail": detail,
+        "visual": charts.line_chart(_series(hist, "rx_pps")[-40:], warn=th["rx_pps"][0],
+                                    attack=th["rx_pps"][1], spark=True, cls="c1"),
     }
 
 
@@ -380,5 +430,5 @@ def test_notification(request: Request):
 
 module = Module(
     slug="ddos", title="DDoS", description="Canlı DDoS izleme, eşik bildirimi ve hazır önlem önerileri.",
-    collect=collect, order=20, template="ddos.html", router=router, on_start=start,
+    collect=collect, order=20, template="ddos.html", router=router, on_start=start, summary=summary,
 )

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Coğrafya - NexGuard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Coğrafya</h1><p class="sub">{{ mod.description }}</p></div>
+  <div class="actions">
+    <form method="post" action="/m/geoip/update">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button>{{ "Veritabanını güncelle" if data.installed else "Veritabanını indir" }}</button>
+    </form>
+  </div>
+</div>
+
+<div class="grid grid-3">
+  <section class="panel stat"><div class="eyebrow">Durum</div>
+    <p class="stat-value small">{{ "Kurulu" if data.installed else "Kurulu değil" }}</p>
+    <p class="stat-sub">{% if data.updated %}Son güncelleme {{ data.updated }}{% else %}Henüz indirilmedi{% endif %}</p></section>
+  <section class="panel stat"><div class="eyebrow">Tor çıkış düğümü</div>
+    <p class="stat-value small">{{ data.geo.tor }}</p><p class="stat-sub">bilinen çıkış adresi</p></section>
+  <section class="panel stat"><div class="eyebrow">İndirme</div>
+    <p class="stat-value small">{{ data.geo.phase }}</p><p class="stat-sub">{{ data.geo.message }}</p></section>
+</div>
+
+<h2 class="section-title">IP sorgula</h2>
+<form method="post" action="/m/geoip/lookup" class="panel inline">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input name="ip" placeholder="203.0.113.7" autocomplete="off" required maxlength="45" aria-label="IP adresi">
+  <button class="ghost">Sorgula</button>
+</form>
+<p class="muted small" style="margin-top:14px">Sorgular yerel veritabanında yapılır; IP adresleri dışarı gönderilmez. İndirme yalnızca düğmeye bastığınızda başlar.</p>
+{% endblock %}

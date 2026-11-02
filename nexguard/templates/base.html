@@ -1,27 +1,74 @@
 <!doctype html>
 <html lang="tr">
+{% macro ico(name) -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if name == 'overview' -%}
+  <rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/>
+  <rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/>
+{%- elif name == 'audit' -%}
+  <path d="M12 3l7 3v5.2c0 4.5-3 7.6-7 8.8-4-1.2-7-4.3-7-8.8V6l7-3z"/><path d="M9 12l2 2 4-4"/>
+{%- elif name == 'ddos' -%}
+  <path d="M3 12h4l2.2-7 4 14L15 12h6"/>
+{%- elif name == 'geoip' -%}
+  <circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.8 3.2 2.8 14.8 0 18"/><path d="M12 3c-2.8 3.2-2.8 14.8 0 18"/>
+{%- elif name == 'settings' -%}
+  <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.4"/><circle cx="9" cy="17" r="2.4"/>
+{%- else -%}
+  <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>
+{%- endif -%}
+</svg>
+{%- endmacro %}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>{% block title %}NexGuard{% endblock %}</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%230c7f74' d='M12 2.5l8 3.3v5.6c0 5-3.5 8.6-8 10-4.5-1.4-8-5-8-10V5.8l8-3.3z'/%3E%3Cpath fill='%23fff' d='M10.6 15.4l-3-3 1.4-1.4 1.6 1.6 4-4 1.4 1.4z'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<a class="skip" href="#content">İçeriğe geç</a>
 {% if user %}
-<header class="top">
-  <a class="brand" href="/">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
-    NexGuard
-  </a>
-  <nav>
-    <a href="/" {% if page == 'overview' %}class="on"{% endif %}>Genel Bakış</a>
-    {% for m in modules %}<a href="/m/{{ m.slug }}" {% if page == m.slug %}class="on"{% endif %}>{{ m.title }}</a>{% endfor %}
-    <a href="/settings" {% if page == 'settings' %}class="on"{% endif %}>Ayarlar</a>
-  </nav>
-  <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Çıkış ({{ user }})</button></form>
-</header>
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="/">
+      <span class="logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v5.5c0 4.7-3.4 8-8 9.5-4.6-1.5-8-4.8-8-9.5V6l8-3z"/></svg>
+      </span>
+      <span class="word"><b>NexGuard</b><small>SUNUCU GÜVENLİĞİ</small></span>
+    </a>
+    <nav class="nav" aria-label="Ana gezinme">
+      <a href="/" {% if page == 'overview' %}class="on" aria-current="page"{% endif %}>{{ ico('overview') }}Genel Bakış</a>
+      {% for m in modules %}
+      <a href="/m/{{ m.slug }}" {% if page == m.slug %}class="on" aria-current="page"{% endif %}>{{ ico(m.slug) }}{{ m.title }}</a>
+      {% endfor %}
+      <a href="/settings" {% if page == 'settings' %}class="on" aria-current="page"{% endif %}>{{ ico('settings') }}Ayarlar</a>
+    </nav>
+    <div class="side-foot">
+      <span class="avatar" aria-hidden="true">{{ user[:1] }}</span>
+      <span class="userline"><b>{{ user }}</b><span>yönetici</span></span>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="icon" title="Çıkış yap" aria-label="Çıkış yap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h9"/></svg>
+        </button>
+      </form>
+    </div>
+  </aside>
+  <div>
+{% else %}
+<div class="authwrap">
 {% endif %}
-<main>{% if flash %}<p class="flash">{{ flash }}</p>{% endif %}{% block content %}{% endblock %}</main>
-<footer>NexGuard {{ version }}</footer>
+    <main id="content" class="{{ 'main' if user else 'auth' }}">
+      {% if flash %}<p class="flash" role="status">{{ flash }}</p>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+{% if user %}
+    <footer class="site">NexGuard {{ version }} · yerel panel · 127.0.0.1</footer>
+  </div>
+</div>
+{% else %}
+</div>
+{% endif %}
 </body>
 </html>

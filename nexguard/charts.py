@@ -21,11 +21,15 @@ def _fmt(v: float) -> str:
 
 
 def line_chart(values: list[float], *, unit: str = "", warn: float | None = None, attack: float | None = None,
-               step_seconds: int = 5, w: int = 640, h: int = 170, cls: str = "c1") -> Markup:
-    """Eksenli çizgi grafik; eşikler yatay kesik çizgi olarak gösterilir."""
+               step_seconds: int = 5, w: int = 640, h: int = 170, cls: str = "c1",
+               spark: bool = False) -> Markup:
+    """Eksenli çizgi grafik; eşikler yatay kesik çizgi olarak gösterilir.
+
+    spark=True eksen etiketlerini kaldırır (özet kartlarındaki küçük grafikler için).
+    """
     if len(values) < 2:
         return Markup('<div class="chart-empty">Veri toplanıyor...</div>')
-    left, right, top, bottom = 44, 12, 10, 24
+    left, right, top, bottom = (2, 2, 3, 3) if spark else (44, 12, 10, 24)
     pw, ph = w - left - right, h - top - bottom
     peak = max(values)
     ceiling = peak
@@ -40,27 +44,31 @@ def line_chart(values: list[float], *, unit: str = "", warn: float | None = None
     def py(v: float) -> float:
         return top + ph - ph * min(v, ymax) / ymax
 
-    parts = [f'<svg viewBox="0 0 {w} {h}" class="chart" role="img" aria-label="Grafik">']
-    for i in range(5):
-        v = ymax * i / 4
-        y = py(v)
-        parts.append(f'<line class="grid" x1="{left}" x2="{w - right}" y1="{y:.1f}" y2="{y:.1f}"/>')
-        parts.append(f'<text class="ax" x="{left - 6}" y="{y + 4:.1f}" text-anchor="end">{_fmt(v)}</text>')
-    total_s = step_seconds * (len(values) - 1)
-    for frac, label in ((0, f"-{total_s // 60 or 1} dk" if total_s >= 60 else f"-{total_s} sn"), (0.5, ""), (1, "şimdi")):
-        if label:
+    parts = [f'<svg viewBox="0 0 {w} {h}" class="chart{" spark" if spark else ""}" role="img" aria-label="Grafik">']
+    if not spark:
+        for i in range(5):
+            v = ymax * i / 4
+            y = py(v)
+            parts.append(f'<line class="grid" x1="{left}" x2="{w - right}" y1="{y:.1f}" y2="{y:.1f}"/>')
+            parts.append(f'<text class="ax" x="{left - 6}" y="{y + 4:.1f}" text-anchor="end">{_fmt(v)}</text>')
+        total_s = step_seconds * (len(values) - 1)
+        for frac, label in ((0, f"-{total_s // 60 or 1} dk" if total_s >= 60 else f"-{total_s} sn"), (1, "şimdi")):
             x = left + pw * frac
             parts.append(f'<text class="ax" x="{x:.1f}" y="{h - 6}" text-anchor="{"start" if frac == 0 else "end"}">{label}</text>')
     for t, name in ((warn, "uyarı"), (attack, "saldırı")):
         if t is not None and t <= ymax:
             y = py(t)
-            parts.append(f'<line class="thr {name}" x1="{left}" x2="{w - right}" y1="{y:.1f}" y2="{y:.1f}"/>'
-                         f'<text class="thr-t {name}" x="{w - right - 2}" y="{y - 3:.1f}" text-anchor="end">{name} eşiği</text>')
+            parts.append(f'<line class="thr {name}" x1="{left}" x2="{w - right}" y1="{y:.1f}" y2="{y:.1f}"/>')
+            if not spark:
+                parts.append(f'<text class="thr-t {name}" x="{w - right - 2}" y="{y - 3:.1f}" '
+                             f'text-anchor="end">{name} eşiği</text>')
     pts = " ".join(f"{px(i):.1f},{py(v):.1f}" for i, v in enumerate(values))
     area = f"{left},{top + ph} {pts} {px(len(values) - 1):.1f},{top + ph}"
     parts.append(f'<polygon class="area {cls}" points="{area}"/><polyline class="ln {cls}" points="{pts}"/>')
-    parts.append(f'<circle class="dot {cls}" cx="{px(len(values) - 1):.1f}" cy="{py(values[-1]):.1f}" r="3.5"/>')
-    parts.append(f'<text class="cur {cls}" x="{left + 4}" y="{top + 12}">{_fmt(values[-1])} {escape(unit)}</text></svg>')
+    if not spark:
+        parts.append(f'<circle class="dot {cls}" cx="{px(len(values) - 1):.1f}" cy="{py(values[-1]):.1f}" r="3.5"/>')
+        parts.append(f'<text class="cur {cls}" x="{left + 4}" y="{top + 12}">{_fmt(values[-1])} {escape(unit)}</text>')
+    parts.append("</svg>")
     return Markup("".join(parts))
 
 
@@ -76,7 +84,7 @@ def donut(percent: float, *, center: str, sub: str = "", state: str = "ok", size
         + (f'<text x="66" y="90" text-anchor="middle" class="ds">{escape(sub)}</text>' if sub else "") + "</svg>")
 
 
-def bars(items: list[tuple[str, float, str]], *, w: int = 560, row: int = 30, anon_key: bool = False) -> Markup:
+def bars(items: list[tuple[str, float, str]], *, w: int = 560, row: int = 30) -> Markup:
     """Yatay çubuk grafik. items: (etiket, değer, sınıf). Değer metni çubuğun sağında."""
     if not items:
         return Markup("")

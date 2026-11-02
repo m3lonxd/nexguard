@@ -1,16 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Giriş - NexGuard{% endblock %}
 {% block content %}
-<section class="card narrow">
-  <h1>NexGuard</h1>
-  <p class="muted">Sunucu güvenlik paneli</p>
-  {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+<section class="panel login-card">
+  <div class="login-brand">
+    <span class="logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v5.5c0 4.7-3.4 8-8 9.5-4.6-1.5-8-4.8-8-9.5V6l8-3z"/></svg>
+    </span>
+    <span><b>NexGuard</b><span>Sunucu güvenlik paneli</span></span>
+  </div>
+  {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
   <form method="post" action="/login">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label>Kullanıcı adı <input name="username" autocomplete="username" required autofocus></label>
-    <label>Parola <input name="password" type="password" autocomplete="current-password" required></label>
+    <label>Kullanıcı adı
+      <input name="username" autocomplete="username" required autofocus>
+    </label>
+    <label>Parola
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
     <label>Doğrulama kodu <small class="muted">(2FA açıksa)</small>
-      <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8"></label>
+      <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+    </label>
     <button>Giriş yap</button>
   </form>
 </section>

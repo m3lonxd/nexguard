@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import __version__, config, db, notify, security, sysinfo
+from . import __version__, charts, config, db, notify, security, sysinfo
 from .modules import load_modules
 
 BASE = Path(__file__).parent
@@ -134,8 +134,31 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
         if not logged_in(request):
             return RedirectResponse("/login", status_code=303)
         with db.session() as conn:
-            events = conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT 10").fetchall()
-        return render(request, "overview.html", info=sysinfo.snapshot(), events=events, page="overview")
+            events = conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT 12").fetchall()
+            warn24 = conn.execute(
+                "SELECT COUNT(*) FROM events WHERE level IN ('warning', 'error') "
+                "AND ts >= datetime('now', '-1 day')").fetchone()[0]
+        info = sysinfo.snapshot()
+        mem_pct = round(100 * info["mem_used"] / info["mem_total"]) if info["mem_total"] else 0
+        disk_pct = round(100 * info["disk_used"] / info["disk_total"]) if info["disk_total"] else 0
+
+        def level(pct: int) -> str:
+            return "bad" if pct >= 90 else "warn" if pct >= 75 else "ok"
+
+        summaries = []
+        for m in modules:
+            if not m.summary:
+                continue
+            try:
+                summaries.append(m.summary())
+            except Exception as exc:  # noqa: BLE001 - tek özet paneli düşürmemeli
+                db.log_event("core", "error", f"Özet üretilemedi: {m.slug}: {exc.__class__.__name__}")
+        return render(request, "overview.html", info=info, events=events, page="overview",
+                      summaries=summaries, warn24=warn24, mem_pct=mem_pct, disk_pct=disk_pct,
+                      mem_donut=charts.donut(mem_pct, center=f"{mem_pct}%", sub="bellek",
+                                             state=level(mem_pct), size=104),
+                      disk_donut=charts.donut(disk_pct, center=f"{disk_pct}%", sub="disk",
+                                              state=level(disk_pct), size=104))
 
     @app.get("/m/{slug}", response_class=HTMLResponse)
     async def module_page(request: Request, slug: str):
