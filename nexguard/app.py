@@ -192,13 +192,13 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
             return render(request, "notfound.html", 404, page="")
         from .modules import harita
         return render(request, mod.template, mod=mod, data=mod.collect(), page=slug,
-                      flush=slug in ("harita", "ddos"), live=harita.live_payload())
+                      flush=slug in ("harita", "ddos", "audit", "geoip"), live=harita.live_payload())
 
     @app.get("/settings", response_class=HTMLResponse)
     async def settings(request: Request):
         if not logged_in(request):
             return RedirectResponse("/login", status_code=303)
-        return render(request, "settings.html", page="settings", **_totp_ctx(request))
+        return render(request, "settings.html", flush=True, page="settings", **_totp_ctx(request))
 
     def _totp_ctx(request: Request) -> dict:
         with db.session() as conn:
@@ -217,7 +217,7 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
         request.session["totp_pending"] = secret
         ctx = _totp_ctx(request)
         ctx["totp_pending"] = {"secret": secret, "uri": security.totp_uri(secret, request.session["user"])}
-        return render(request, "settings.html", page="settings", **ctx)
+        return render(request, "settings.html", flush=True, page="settings", **ctx)
 
     @app.post("/settings/totp/confirm", response_class=HTMLResponse)
     async def totp_confirm(request: Request, code: str = Form(""), csrf: str = Form("")):
@@ -234,11 +234,11 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
             request.session.pop("totp_pending", None)
             db.log_event("core", "info", f"2FA etkinleştirildi: {request.session['user']}")
             ctx.update(totp_enabled=True, message="İki adımlı doğrulama etkinleştirildi.")
-            return render(request, "settings.html", page="settings", **ctx)
+            return render(request, "settings.html", flush=True, page="settings", **ctx)
         if secret:
             ctx["totp_pending"] = {"secret": secret, "uri": security.totp_uri(secret, request.session["user"])}
         ctx["message"] = "Kod hatalı, tekrar deneyin."
-        return render(request, "settings.html", 400, page="settings", **ctx)
+        return render(request, "settings.html", 400, flush=True, page="settings", **ctx)
 
     @app.post("/settings/notify", dependencies=guarded)
     async def notify_save(request: Request, telegram_token: str = Form(""), telegram_chat: str = Form(""),

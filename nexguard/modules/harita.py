@@ -25,7 +25,10 @@ def _world() -> dict:
 
 @lru_cache(maxsize=1)
 def _home_cc() -> str | None:
-    """Sunucunun ülkesi: saat diliminden (zone.tab). Ağa çıkmaz; bulunamazsa yay çizilmez."""
+    """Sunucunun ülkesi: NEXGUARD_HOME_CC, yoksa saat diliminden (zone.tab). Ağa çıkmaz; bulunamazsa yay çizilmez."""
+    env = os.environ.get("NEXGUARD_HOME_CC", "").strip().upper()
+    if env:
+        return env
     try:
         try:
             tz = open("/etc/timezone", encoding="utf-8").read().strip()

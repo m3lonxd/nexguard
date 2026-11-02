@@ -1,9 +1,13 @@
 (function () {
   "use strict";
   // Sunucudan gelen düz sayılar kısa bir sayımla belirir. Birim yazıları ve metinler dokunulmadan kalır.
+  var rings = document.querySelectorAll("[data-ring]");
+  requestAnimationFrame(function () { requestAnimationFrame(function () {
+    rings.forEach(function (r) { r.style.strokeDashoffset = 100 - Math.min(100, parseFloat(r.getAttribute("data-ring")) || 0); });
+  }); });
   if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   var DUR = 320;
-  document.querySelectorAll(".readouts dd, .stat-value, .score span").forEach(function (el) {
+  document.querySelectorAll(".readouts dd, .stat-value, .score span, .count").forEach(function (el) {
     var node = el.firstChild;
     if (!node || node.nodeType !== 3) return;
     var m = node.textContent.trim().match(/^(%?)(\d+(?:\.\d+)?)$/);

@@ -1,31 +1,44 @@
 {% extends "base.html" %}
 {% block title %}Coğrafya - NexGuard{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Coğrafya</h1><p class="sub">{{ mod.description }}</p></div>
-  <div class="actions">
-    <form method="post" action="/m/geoip/update">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button>{{ "Veritabanını güncelle" if data.installed else "Veritabanını indir" }}</button>
-    </form>
+<h1 class="skip">Coğrafya</h1>
+{% set g = data.geo %}
+{% set lvl = 'x' if g.phase == 'running' else (2 if g.phase == 'error' else (0 if data.installed else 1)) %}
+<div class="dash">
+  <div class="dash-left">
+    <section class="tile-card">
+      <h2>Tor çıkış düğümü</h2>
+      <div class="big"><span class="count">{{ g.tor }}</span><small>adres</small></div>
+      <div class="note">Listede olan kaynaklar haritada aracı olarak işaretlenir.</div>
+    </section>
+    <section class="tile-card">
+      <h2>Veri kaynakları</h2>
+      <p class="note">Ülke ve ağ: DB-IP Lite (CC BY 4.0). Tor: Tor Project çıkış listesi. Harita: Natural Earth. İndirme yalnızca düğmeye bastığınızda başlar.</p>
+    </section>
   </div>
+  <section class="map-card l{{ lvl }}">
+    <div class="map-top">
+      <span class="state-pill l{{ lvl }}">{{ 'İNDİRİLİYOR' if g.phase == 'running' else 'HATA' if g.phase == 'error' else 'KURULU' if data.installed else 'KURULU DEĞİL' }}</span>
+      <span class="map-why">{{ g.message or mod.description }}</span>
+      <form method="post" action="/m/geoip/update"><input type="hidden" name="csrf" value="{{ csrf }}"><button>{{ "Veritabanını güncelle" if data.installed else "Veritabanını indir" }}</button></form>
+    </div>
+    <div class="chart-wrap">
+      <h2>IP sorgula</h2>
+      <form method="post" action="/m/geoip/lookup" class="inline lookup">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input name="ip" placeholder="203.0.113.7" autocomplete="off" required maxlength="45" aria-label="IP adresi">
+        <button>Sorgula</button>
+      </form>
+      <p class="note">Sorgular yerel veritabanında yapılır; IP adresleri dışarı gönderilmez.</p>
+    </div>
+    <div class="float">
+      <div class="head-row"><h2>Veritabanı</h2></div>
+      <div class="tiles">
+        <div class="t e"><span>Durum</span><b>{{ "Kurulu" if data.installed else "Yok" }}</b></div>
+        <div class="t a"><span>Son güncelleme</span><b>{{ g.updated or "-" }}</b></div>
+        <div class="t g"><span>Tor listesi</span><b class="count">{{ g.tor }}</b></div>
+      </div>
+    </div>
+  </section>
 </div>
-
-<div class="grid grid-3">
-  <section class="panel stat"><div class="eyebrow">Durum</div>
-    <p class="stat-value small">{{ "Kurulu" if data.installed else "Kurulu değil" }}</p>
-    <p class="stat-sub">{% if data.geo.updated %}Son güncelleme {{ data.geo.updated }}{% else %}Henüz indirilmedi{% endif %}</p></section>
-  <section class="panel stat"><div class="eyebrow">Tor çıkış düğümü</div>
-    <p class="stat-value small">{{ data.geo.tor }}</p><p class="stat-sub">bilinen çıkış adresi</p></section>
-  <section class="panel stat"><div class="eyebrow">İndirme</div>
-    <p class="stat-value small">{{ {'idle':'Boşta','running':'İndiriliyor','done':'Tamamlandı','error':'Hata'}.get(data.geo.phase, data.geo.phase) }}</p><p class="stat-sub">{{ data.geo.message }}</p></section>
-</div>
-
-<h2 class="section-title">IP sorgula</h2>
-<form method="post" action="/m/geoip/lookup" class="panel inline">
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  <input name="ip" placeholder="203.0.113.7" autocomplete="off" required maxlength="45" aria-label="IP adresi">
-  <button class="ghost">Sorgula</button>
-</form>
-<p class="muted small">Sorgular yerel veritabanında yapılır; IP adresleri dışarı gönderilmez. İndirme yalnızca düğmeye bastığınızda başlar.</p>
 {% endblock %}

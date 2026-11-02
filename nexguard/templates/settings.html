@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Ayarlar - NexGuard{% endblock %}
 {% block content %}
-<h1>Ayarlar</h1>
-<div class="card narrow-ish">
-  <h2>İki adımlı doğrulama (TOTP)</h2>
+<h1 class="skip">Ayarlar</h1>
+<div class="dash two">
+<section class="map-card lflat">
+  <div class="map-top"><h2>İki adımlı doğrulama</h2><span class="state-pill l{{ 0 if totp_enabled else 1 }}">{{ "AÇIK" if totp_enabled else "KAPALI" }}</span></div>
+  <div class="set-body">
   {% if message %}<p class="alert">{{ message }}</p>{% endif %}
   {% if totp_enabled %}
     <p>Etkin. Giriş için kimlik doğrulayıcı uygulamadaki kod gerekir.</p>
@@ -22,8 +24,9 @@
       <input type="hidden" name="csrf" value="{{ csrf }}"><button>Kurulumu başlat</button>
     </form>
   {% endif %}
-</div>
-<div class="card narrow-ish">
+  </div>
+</section>
+<section class="tile-card">
   <h2>Bildirim kanalları</h2>
   <p class="muted">DDoS ve diğer uyarılar buraya gider. Anahtarlar sunucuda saklanır, buradan geri gösterilmez; boş bırakılan alan mevcut değeri korur.</p>
   <p>Telegram: <strong>{{ "ayarlı" if notify.telegram else "yok" }}</strong> · Webhook: <strong>{{ "ayarlı" if notify.webhook else "yok" }}</strong></p>
@@ -38,5 +41,6 @@
     <form method="post" action="/settings/notify/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Test gönder</button></form>
     <form method="post" action="/settings/notify"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="clear" value="1"><button class="ghost">Tümünü temizle</button></form>
   </div>
+</section>
 </div>
 {% endblock %}
