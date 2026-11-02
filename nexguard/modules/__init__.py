@@ -26,6 +26,8 @@ class Module:
     router: APIRouter | None = None
     # Uygulama başlarken bir kez çağrılır (arka plan iş parçacığı başlatmak için).
     on_start: Callable[[], None] | None = None
+    # Genel Bakış kartı: {status: ok|warn|bad|idle, headline, detail, visual (Markup)}
+    summary: Callable[[], dict] | None = None
 
 
 def load_modules() -> list[Module]:

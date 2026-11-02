@@ -18,6 +18,16 @@ CREATE TABLE IF NOT EXISTS events (
     level TEXT NOT NULL,
     message TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS attacks (
+    id INTEGER PRIMARY KEY,
+    started TEXT NOT NULL,
+    ended TEXT,
+    peak_level INTEGER NOT NULL DEFAULT 1,
+    peak_pps REAL NOT NULL DEFAULT 0,
+    peak_mbps REAL NOT NULL DEFAULT 0,
+    peak_syn INTEGER NOT NULL DEFAULT 0,
+    summary TEXT
+);
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
