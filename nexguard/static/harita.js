@@ -18,12 +18,15 @@
   function pct(n, d) { return d ? Math.round(100 * n / d) : 0; }
 
   function render(p) {
-    var lvl = document.getElementById("live-banner");
-    if (lvl) {
-      lvl.className = "panel banner l" + p.level;
-      document.getElementById("live-level").textContent = "Durum: " + p.level_name.toUpperCase();
-      document.getElementById("live-ts").textContent = "güncelleme " + p.ts;
+    var band = document.getElementById("live-band");
+    if (band) {
+      band.className = "band " + (p.running ? "l" + p.level : "lx");
+      document.getElementById("band-state").textContent = p.state_label;
+      document.getElementById("band-facts").textContent = p.total + " bağlantı · " + p.countries.length + " ülke";
+      document.getElementById("band-why").textContent = p.why;
+      document.getElementById("live-ts").textContent = p.ts;
     }
+    svg.setAttribute("data-level", p.running ? p.level : 0);
     var vd = document.getElementById("live-verdict");
     if (vd) vd.textContent =
       p.countries.length ? p.verdict : (p.installed ? "Şu an dışarıdan bağlı kaynak yok." : "Coğrafya veritabanı kurulu değil.");
@@ -98,7 +101,16 @@
         return r.json();
       })
       .then(function (p) { render(p); setState("canlı", "ok"); })
-      .catch(function (e) { if (e.message !== "oturum") setState("bağlantı hatası", "high"); });
+      .catch(function (e) {
+        if (e.message === "oturum") return;
+        setState("bağlantı hatası", "high");
+        var band = document.getElementById("live-band");
+        if (band) {
+          band.className = "band lx";
+          document.getElementById("band-state").textContent = "BAĞLANTI YOK";
+          document.getElementById("band-why").textContent = "Panele ulaşılamıyor; gösterilen veri eski olabilir.";
+        }
+      });
   }
   poll();
   timer = setInterval(poll, 5000);

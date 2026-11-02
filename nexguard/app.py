@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import __version__, charts, config, db, notify, security, sysinfo
+from . import __version__, config, db, notify, security, sysinfo
 from .modules import load_modules
 
 BASE = Path(__file__).parent
@@ -163,8 +163,6 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
         mem_pct = round(100 * info["mem_used"] / info["mem_total"]) if info["mem_total"] else 0
         disk_pct = round(100 * info["disk_used"] / info["disk_total"]) if info["disk_total"] else 0
 
-        def level(pct: int) -> str:
-            return "bad" if pct >= 90 else "warn" if pct >= 75 else "ok"
 
         summaries = []
         for m in modules:
@@ -175,12 +173,8 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
             except Exception as exc:  # noqa: BLE001 - tek özet paneli düşürmemeli
                 db.log_event("core", "error", f"Özet üretilemedi: {m.slug}: {exc.__class__.__name__}")
         from .modules import harita
-        return render(request, "overview.html", world=harita._world(), info=info, events=events, page="overview",
-                      summaries=summaries, warn24=warn24, mem_pct=mem_pct, disk_pct=disk_pct,
-                      mem_donut=charts.donut(mem_pct, center=f"{mem_pct}%", sub="bellek",
-                                             state=level(mem_pct), size=104),
-                      disk_donut=charts.donut(disk_pct, center=f"{disk_pct}%", sub="disk",
-                                              state=level(disk_pct), size=104))
+        return render(request, "overview.html", world=harita._world(), live=harita.live_payload(), flush=True, info=info, events=events,
+                      page="overview", summaries=summaries, warn24=warn24, mem_pct=mem_pct, disk_pct=disk_pct)
 
     @app.get("/api/live")
     async def api_live(request: Request):
@@ -196,7 +190,7 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
         mod = next((m for m in modules if m.slug == slug), None)
         if mod is None:
             return render(request, "notfound.html", 404, page="")
-        return render(request, mod.template, mod=mod, data=mod.collect(), page=slug)
+        return render(request, mod.template, mod=mod, data=mod.collect(), page=slug, flush=slug == "harita")
 
     @app.get("/settings", response_class=HTMLResponse)
     async def settings(request: Request):

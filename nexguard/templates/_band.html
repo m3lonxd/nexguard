@@ -1,0 +1,6 @@
+<section id="live-band" class="band {{ 'l%d' % live.level if live.running else 'lx' }}" role="status" aria-live="polite">
+  <strong id="band-state">{{ live.state_label }}</strong>
+  <span class="facts" id="band-facts">{{ live.total }} bağlantı · {{ live.countries | length }} ülke</span>
+  <span class="why" id="band-why">{{ live.why }}</span>
+  <time id="live-ts">{{ live.ts }}</time>
+</section>

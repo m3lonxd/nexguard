@@ -26,8 +26,13 @@ def live_payload() -> dict:
     with ddos.monitor._lock:
         last = ddos.monitor.history[-1] if ddos.monitor.history else None
         level = ddos.monitor.level
+        reasons = list(ddos.monitor.reasons)
+    running = ddos._started
+    label = ddos.LEVELS[level].replace("i", "İ").upper() if running else "BİLİNMİYOR"
+    why = (" · ".join(reasons) or "Eşikler aşılmadı.") if running else "İzleyici çalışmıyor; ölçüm yapılamıyor. Paneli yeniden başlatın."
     cent = _world()["centroids"]
     out = {"ts": time.strftime("%H:%M:%S"), "level": level, "level_name": ddos.LEVELS[level],
+           "running": running, "state_label": label, "why": why,
            "installed": geoip.status()["installed"], "total": 0, "anon_pct": 0,
            "countries": [], "sources": [], "verdict": ""}
     if not last or not last.per_ip:
