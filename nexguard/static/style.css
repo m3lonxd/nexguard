@@ -426,7 +426,7 @@ th {
   padding: 0 10px 9px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .07em;
   text-align: left;
@@ -522,7 +522,7 @@ td input { width: 110px; margin: 0; }
 
 /* --- uyarı şeritleri -------------------------------------------------- */
 
-.banner { display: flex; flex-direction: column; gap: 7px; border-left: 3px solid var(--line); }
+.banner { display: flex; flex-direction: column; gap: 7px; border-left: 1px solid var(--line); }
 .banner.l0 { border-left-color: var(--ok); }
 .banner.l1 { border-left-color: var(--warn); }
 .banner.l2 { border-left-color: var(--bad); }
@@ -650,7 +650,7 @@ td input { width: 110px; margin: 0; }
 .score.gC { border-color: var(--warn); }
 .score.gD, .score.gF { border-color: var(--bad); }
 
-.finding { border-left: 3px solid var(--line); }
+.finding { border-left: 1px solid var(--line); }
 .finding.high { border-left-color: var(--bad); }
 .finding.medium { border-left-color: var(--warn); }
 .finding.low { border-left-color: var(--warn); }
