@@ -19,10 +19,13 @@
 
   function render(p) {
     var lvl = document.getElementById("live-banner");
-    lvl.className = "panel banner l" + p.level;
-    document.getElementById("live-level").textContent = "Durum: " + p.level_name.toUpperCase();
-    document.getElementById("live-ts").textContent = "güncelleme " + p.ts;
-    document.getElementById("live-verdict").textContent =
+    if (lvl) {
+      lvl.className = "panel banner l" + p.level;
+      document.getElementById("live-level").textContent = "Durum: " + p.level_name.toUpperCase();
+      document.getElementById("live-ts").textContent = "güncelleme " + p.ts;
+    }
+    var vd = document.getElementById("live-verdict");
+    if (vd) vd.textContent =
       p.countries.length ? p.verdict : (p.installed ? "Şu an dışarıdan bağlı kaynak yok." : "Coğrafya veritabanı kurulu değil.");
 
     // ülke renkleri
@@ -60,17 +63,20 @@
 
     // tablolar
     var tc = document.getElementById("tb-countries");
+    if (!tc) return;
     tc.textContent = "";
     if (!p.countries.length) tc.appendChild(rowOf([el("td", {colspan: "4", "class": "muted"}, "Bağlantı yok")]));
-    p.countries.slice(0, 12).forEach(function (c) {
+    p.countries.slice(0, parseInt(tc.getAttribute("data-limit") || "12", 10)).forEach(function (c) {
       tc.appendChild(rowOf([el("td", null, c.country), el("td", null, String(c.ips)), el("td", null, String(c.n)), el("td", null, pct(c.anon, c.n) + "%")]));
     });
     var ts = document.getElementById("tb-sources");
-    ts.textContent = "";
-    if (!p.sources.length) ts.appendChild(rowOf([el("td", {colspan: "4", "class": "muted"}, "Bağlantı yok")]));
-    p.sources.forEach(function (s) {
-      ts.appendChild(rowOf([el("td", null, s.ip), el("td", null, String(s.n)), el("td", null, s.country), el("td", null, s.flags.length ? s.flags.join(", ") : "-")]));
-    });
+    if (ts) {
+      ts.textContent = "";
+      if (!p.sources.length) ts.appendChild(rowOf([el("td", {colspan: "4", "class": "muted"}, "Bağlantı yok")]));
+      p.sources.forEach(function (s) {
+        ts.appendChild(rowOf([el("td", null, s.ip), el("td", null, String(s.n)), el("td", null, s.country), el("td", null, s.flags.length ? s.flags.join(", ") : "-")]));
+      });
+    }
   }
   function rowOf(cells) { var tr = document.createElement("tr"); cells.forEach(function (c) { tr.appendChild(c); }); return tr; }
 
@@ -82,7 +88,7 @@
     tip.hidden = false;
   }
 
-  function setState(text, cls) { state.textContent = text; state.className = "badge " + cls; }
+  function setState(text, cls) { if (state) { state.textContent = text; state.className = "badge " + cls; } }
 
   function poll() {
     fetch("/api/live", {credentials: "same-origin", cache: "no-store"})
