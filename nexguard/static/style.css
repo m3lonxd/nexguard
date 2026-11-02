@@ -529,7 +529,7 @@ td input { width: 110px; margin: 0; }
 .banner-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .banner-top strong { font-size: 16px; letter-spacing: -.01em; }
 .banner .reason { color: var(--fg); font-size: 13px; }
-.banner .reason::before { content: "·"; margin-right: 8px; color: var(--muted); }
+.banner 
 
 .flash {
   display: flex;
@@ -970,11 +970,6 @@ button:not(.ghost):not(.icon):hover, .btn:not(.ghost):hover { filter: brightness
 .banner.l1 { background: color-mix(in oklch, var(--warn) 12%, var(--surface)); }
 .banner.l2 { background: color-mix(in oklch, var(--bad) 12%, var(--surface)); }
 
-/* metrik kartları: değerin üstünde ince renk şeridi, her metrik kendi tonunda */
-.grid-4 > .stat { border-top: 3px solid var(--c1); }
-.grid-4 > .stat:nth-child(2) { border-top-color: var(--c2); }
-.grid-4 > .stat:nth-child(3) { border-top-color: var(--c3); }
-.grid-4 > .stat:nth-child(4) { border-top-color: var(--warn); }
 
 /* harita ve grafikler */
 #worldmap .land path { fill: color-mix(in oklch, var(--c2) 14%, var(--surface-2)); stroke: color-mix(in oklch, var(--c2) 22%, var(--line)); }
@@ -985,3 +980,33 @@ a { color: var(--accent); }
 .summary.warn { background: color-mix(in oklch, var(--warn) 18%, var(--surface)); }
 .summary.bad { background: color-mix(in oklch, var(--bad) 16%, var(--surface)); }
 .avatar { background: color-mix(in oklch, var(--accent) 28%, transparent); color: var(--fg); border-color: transparent; }
+
+/* === Durum rengi düzeltmesi, eylem ve gürültü azaltma ================
+   Uyarı/tehlike zeminleri artık soğuk mavi yüzeye karışmaz: kendi sıcak tonlarını taşır. */
+:root {
+  --ok-bg: oklch(0.955 0.04 150);
+  --warn-bg: oklch(0.955 0.06 85);
+  --bad-bg: oklch(0.95 0.04 25);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ok-bg: oklch(0.26 0.05 150);
+    --warn-bg: oklch(0.29 0.06 80);
+    --bad-bg: oklch(0.27 0.07 25);
+  }
+}
+.summary.ok, .banner.l0 { background: var(--ok-bg); }
+.summary.warn, .banner.l1, .stat.warn { background: var(--warn-bg); }
+.summary.bad, .banner.l2 { background: var(--bad-bg); }
+.stat.warn { border-color: color-mix(in oklch, var(--warn) 45%, var(--line)); }
+.banner.lx { background: var(--surface-2); border-color: var(--line); }
+.banner .reason::before { content: none; }
+.state-tag { margin-left: 8px; padding: 1px 7px; border-radius: 4px; font-size: 11.5px; font-weight: 700; letter-spacing: 0;
+  background: color-mix(in oklch, var(--muted) 18%, transparent); color: var(--fg); }
+.state-tag.ok { background: color-mix(in oklch, var(--ok) 22%, transparent); }
+.state-tag.warn { background: color-mix(in oklch, var(--warn) 28%, transparent); }
+.state-tag.bad { background: color-mix(in oklch, var(--bad) 26%, transparent); }
+.summary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 10px; }
+.summary-actions form { margin: 0; }
+.panel > .eyebrow { margin-bottom: 10px; }
+@media (max-width: 880px) { .nav { flex-wrap: wrap; } }
