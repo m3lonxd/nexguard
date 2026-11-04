@@ -171,6 +171,13 @@ def test_helper_inactive_deletes_table(helper, monkeypatch):
     assert ran == [["nft", "delete", "table", "inet", "nexguard"]] and not scripts
 
 
+
+def test_helper_missing_file_is_idle_not_error(helper):
+    mod, tmp, scripts = helper
+    assert mod.main() == 0 and not scripts
+    st = json.loads((tmp / "engel.state").read_text())
+    assert st["error"] == "" and st["active"] is False and st["count"] == 0
+
 # --- Savunma sayfası ---------------------------------------------------------
 
 def test_savunma_routes(env):

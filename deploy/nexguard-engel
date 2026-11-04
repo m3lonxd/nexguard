@@ -77,6 +77,10 @@ def nft(script: str) -> None:
 
 def main() -> int:
     now = time.time()
+    if not os.path.exists(WANT):
+        # Panel henüz hiç engel yazmadı: hata değil, boş ve pasif durum.
+        write_state({"applied": int(now), "count": 0, "skipped": 0, "error": "", "active": False})
+        return 0
     try:
         with open(WANT) as f:
             data = json.load(f)
