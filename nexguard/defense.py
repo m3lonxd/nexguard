@@ -163,28 +163,41 @@ def helper_state() -> dict:
 
 
 def candidates(per_ip: list[tuple[str, int]], conn_limit: int, sensor_data: dict | None,
-               pps_limit: int) -> list[tuple[str, str]]:
+               pps_limit: int, skipped: list | None = None) -> list[tuple[str, str]]:
     """Saldırı sırasında engellenecek kaynaklar.
 
     TCP kurulu bağlantı sayısı taklit edilemez (üçlü el sıkışma gerekir), bu yüzden güvenilir ölçüttür.
-    Paket hızı ölçütü UDP/ICMP/SYN içindir; bu kaynaklar sahte olabilir, eşik bu yüzden yüksektir.
+    Paket hızı ölçütü UDP/ICMP/SYN içindir; bu kaynaklar sahte olabilir. Algılayıcı bir kaynağı sahte
+    diye işaretlediyse ya da selin tamamı sahte adresliyse o adres engellenmez: masum birini keser,
+    saldırıyı durdurmaz. Atlananlar `skipped` listesine (ip, neden) olarak eklenir.
     """
     out: dict[str, str] = {}
     for ip, n in per_ip:
         if n >= conn_limit:
             out[ip] = f"{n} TCP bağlantısı"
     if sensor_data:
+        verdict = (sensor_data.get("spoof") or {}).get("verdict", "")
         for proto in ("udp", "icmp", "syn", "other"):
-            for ip, pps, _mbps in (sensor_data.get("top") or {}).get(proto, []):
-                if pps >= pps_limit and ip not in out:
-                    out[ip] = f"{proto.upper()} {pps:.0f} paket/sn"
+            for row in (sensor_data.get("top") or {}).get(proto, []):
+                ip, pps = row[0], row[1]
+                why = row[3] if len(row) > 3 else ""
+                if pps < pps_limit or ip in out:
+                    continue
+                if why or verdict:
+                    if skipped is not None:
+                        skipped.append((ip, why or "sel sahte adresli"))
+                    continue
+                out[ip] = f"{proto.upper()} {pps:.0f} paket/sn"
     return list(out.items())
 
 
 def on_attack(per_ip, conn_limit, sensor_data) -> list[str]:
     if not enabled():
         return []
-    found = candidates(per_ip, conn_limit, sensor_data, src_pps_limit())
+    skipped: list = []
+    found = candidates(per_ip, conn_limit, sensor_data, src_pps_limit(), skipped)
+    if skipped:
+        _log_skip(skipped)
     if not found:
         return []
     added = block(found, auto=True)
@@ -192,6 +205,19 @@ def on_attack(per_ip, conn_limit, sensor_data) -> list[str]:
         db.log_event("savunma", "warning", f"Otomatik engel: {len(added)} kaynak ({', '.join(added[:5])}"
                      f"{'…' if len(added) > 5 else ''}), {BLOCK_TTL // 60} dk")
     return added
+
+
+_last_skip = 0.0
+
+
+def _log_skip(skipped: list) -> None:
+    """Sahte kaynak atlamalarını en fazla 5 dakikada bir kaydeder (her örnekte günlüğü doldurmaz)."""
+    global _last_skip
+    if time.time() - _last_skip < 300:
+        return
+    _last_skip = time.time()
+    db.log_event("savunma", "warning", f"Sahte olabilecek {len(skipped)} kaynak engellenmedi "
+                 f"(ör. {skipped[0][0]}: {skipped[0][1]}); kaynakta süzme için sağlayıcıya bildirin")
 
 
 # --- Cloudflare --------------------------------------------------------------

@@ -194,6 +194,26 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
         return render(request, mod.template, mod=mod, data=mod.collect(), page=slug,
                       flush=slug in ("harita", "ddos", "audit", "geoip", "tuzak"), live=harita.live_payload())
 
+    @app.get("/kaynak", response_class=HTMLResponse)
+    def kaynak_page(request: Request, ip: str = ""):
+        # Eşzamanlı (def): RDAP ve ters DNS sorguları ağ bekler, iş parçacığı havuzunda çalışır.
+        if not logged_in(request):
+            return RedirectResponse("/login", status_code=303)
+        from . import abuse, sensor, upstream
+        from .modules import harita, tuzak
+        ctx = {"page": "savunma", "flush": True, "live": harita.live_payload(), "query": ip[:64], "r": None,
+               "error": None}
+        if ip.strip():
+            ip_n = abuse.normalize(ip)
+            if not ip_n:
+                ctx["error"] = "Genel (internetten yönlendirilebilir) bir IPv4/IPv6 adresi girin."
+            else:
+                snap = sensor.read()
+                lines, _ = tuzak._read_cowrie()
+                ctx["r"] = abuse.research(ip_n, snap["data"] if snap["state"] == "hazır" else None, lines,
+                                          upstream.server_ip())
+        return render(request, "kaynak.html", **ctx)
+
     @app.get("/settings", response_class=HTMLResponse)
     async def settings(request: Request):
         if not logged_in(request):

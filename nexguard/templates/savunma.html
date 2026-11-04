@@ -13,7 +13,7 @@
   <div class="set-body">
   {% if data.blocks %}
   <div class="tscroll"><table><thead><tr><th>IP</th><th>Gerekçe</th><th>Kalan</th><th></th></tr></thead><tbody>
-  {% for b in data.blocks %}<tr><td>{{ b.ip }}</td><td>{{ b.why }}{% if b.auto %} <span class="muted small">(otomatik)</span>{% endif %}</td><td>{{ b.left }} dk</td>
+  {% for b in data.blocks %}<tr><td><a href="/kaynak?ip={{ b.ip | urlencode }}">{{ b.ip }}</a></td><td>{{ b.why }}{% if b.auto %} <span class="muted small">(otomatik)</span>{% endif %}</td><td>{{ b.left }} dk</td>
   <td><form method="post" action="/m/savunma/unblock"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="ip" value="{{ b.ip }}"><button class="icon">Kaldır</button></form></td></tr>{% endfor %}
   </tbody></table></div>
   <form method="post" action="/m/savunma/clear" class="mt"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Tüm engelleri kaldır</button></form>
@@ -25,6 +25,11 @@
     <input name="minutes" type="number" min="1" max="1440" value="60" aria-label="Süre (dakika)">
     <button>Engelle</button>
   </form>
+  <h2 class="mt">Kaynak araştır</h2>
+  <form method="get" action="/kaynak" class="inline">
+    <input name="ip" placeholder="203.0.113.7" required maxlength="45" autocomplete="off" aria-label="Araştırılacak IP">
+    <button class="ghost">Ağ sahibini ve abuse adresini bul</button>
+  </form>
   <p class="muted small mt">Engel, bağlantı izleme ve Docker yönlendirmesinden önce (prerouting) uygulanır. Açık SSH oturumlarınızın adresi ve <code>/etc/nexguard/izinli</code> içindeki ağlar yardımcı tarafından asla engellenmez.</p>
   </div>
 </section>
@@ -32,7 +37,7 @@
 <section class="tile-card">
   <h2>Otomatik engel</h2>
   <p class="muted">Saldırı seviyesinde, aşağıdaki kaynaklar {{ data.ttl_min }} dakika engellenir ve saldırı sürdükçe yenilenir:</p>
-  <p class="small">TCP: DDoS eşiğindeki "IP başına bağlantı" saldırı değerini aşan adresler (taklit edilemez). UDP, ICMP, SYN: tek başına aşağıdaki paket hızını aşan adresler (sahte olabilir, eşik bu yüzden yüksek).</p>
+  <p class="small">TCP: DDoS eşiğindeki "IP başına bağlantı" saldırı değerini aşan adresler (taklit edilemez). UDP, ICMP, SYN: tek başına aşağıdaki paket hızını aşan adresler (sahte olabilir, eşik bu yüzden yüksek). Sensörün sahte saydığı kaynaklar (ayrılmış adres, tutarsız TTL, uyuşmayan hop sayısı) ve sahte adresli sel sırasında UDP/ICMP/SYN kaynakları engellenmez: masum bir adresi kesmek saldırganın işine yarar. Bu durumda sağlayıcıdan süzme isteyin.</p>
   <form method="post" action="/m/savunma/auto">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <label class="check"><input type="checkbox" name="autoblock" value="1" {{ "checked" if data.auto }}> Saldırıda otomatik engelle</label>
@@ -59,6 +64,45 @@
     <form method="post" action="/m/savunma/cf/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Bağlantıyı test et</button></form>
     <form method="post" action="/m/savunma/cf/mode"><input type="hidden" name="csrf" value="{{ csrf }}">{% if cf.active %}<button class="ghost">Normale döndür</button>{% else %}<input type="hidden" name="on" value="1"><button class="ghost">Şimdi saldırı moduna al</button>{% endif %}</form>
     <form method="post" action="/m/savunma/cf"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="clear_cf" value="1"><button class="ghost">Sil</button></form>
+  </div>{% endif %}
+</section>
+<section class="tile-card mt">
+  <h2>Hat doyuran saldırı: sağlayıcı</h2>
+  {% set pv = data.prov %}
+  <p class="muted">Hat dolunca sunucudaki hiçbir kural işe yaramaz; paketler bağlantıyı zaten tıkamıştır. Saldırı ancak sağlayıcınızın ağında durur (süzme, hız sınırı, RTBH). Hat kapasitesinin %80'i dolduğunda ya da sel sahte adresli çıktığında, panel ölçümleri ve kaynak listesiyle sağlayıcınıza süzme isteği e-postası gönderir ve size bildirim atar. 30 dakikada en fazla bir kez.</p>
+  <p>Durum: <strong>{% if not pv.ready %}ayarlı değil{% elif pv.auto %}hazır (saldırıda otomatik){% else %}elle{% endif %}</strong>{% if pv.link_mbps %} · hat {{ pv.link_mbps }} Mbit/sn{% endif %}</p>
+  {% if pv.last %}<p class="muted small">Son istek: {{ pv.last }}</p>{% endif %}
+  <form method="post" action="/m/savunma/prov">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Hat kapasitesi (Mbit/sn) <input name="link_mbps" type="number" min="0" max="400000" value="{{ pv.link_mbps or '' }}" placeholder="1000"></label>
+    <label>Sağlayıcının NOC / destek e-postası <input name="email" value="{{ pv.emails | join(' ') }}" autocomplete="off" placeholder="noc@saglayici.com"></label>
+    <label>Sunucunun genel IP'si <input name="ip" value="{{ pv.ip }}" autocomplete="off" placeholder="{{ pv.detected_ip or 'otomatik bulunamadı' }}"></label>
+    <label class="check"><input type="checkbox" name="auto" value="1" {{ "checked" if pv.auto }}> Saldırıda otomatik gönder</label>
+    <button>Kaydet</button>
+  </form>
+  {% if pv.ready %}<form method="post" action="/m/savunma/prov/send" class="mt"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Şimdi süzme iste</button></form>
+  {% elif not data.smtp.configured %}<p class="muted small mt">Gönderim için aşağıda e-posta (SMTP) ayarlayın.</p>{% endif %}
+</section>
+<section class="tile-card mt">
+  <h2>E-posta (SMTP)</h2>
+  {% set sm = data.smtp %}
+  <p class="muted">Sağlayıcı isteği ve kötüye kullanım bildirimleri bu hesaptan gider. Parola kaydedildikten sonra gösterilmez.</p>
+  <p>Durum: <strong>{{ (sm.host ~ ':' ~ sm.port ~ ' · ' ~ sm.sender) if sm.configured else 'ayarlı değil' }}</strong></p>
+  <form method="post" action="/m/savunma/smtp">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row fields">
+      <label>Sunucu <input name="host" value="{{ sm.host }}" autocomplete="off" placeholder="smtp.gmail.com" required></label>
+      <label>Port <input name="port" type="number" min="1" max="65535" value="{{ sm.port }}" required></label>
+    </div>
+    <label>Kullanıcı <input name="user" value="{{ sm.user }}" autocomplete="off"></label>
+    <label>Parola <input name="password" type="password" autocomplete="new-password" placeholder="{{ 'kayıtlı; değiştirmek için yazın' if sm.has_pass else 'uygulama parolası' }}"></label>
+    <label>Gönderen adres <input name="sender" type="email" value="{{ sm.sender }}" autocomplete="off" required></label>
+    <label>Şifreleme <select name="tls">{% for v, l in [("starttls","STARTTLS (587)"),("ssl","SSL/TLS (465)"),("none","Yok")] %}<option value="{{ v }}" {{ "selected" if sm.tls == v }}>{{ l }}</option>{% endfor %}</select></label>
+    <button>Kaydet</button>
+  </form>
+  {% if sm.configured %}<div class="row mt">
+    <form method="post" action="/m/savunma/smtp/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Test iletisi gönder</button></form>
+    <form method="post" action="/m/savunma/smtp"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="clear_smtp" value="1"><button class="ghost">Sil</button></form>
   </div>{% endif %}
 </section>
 </div>

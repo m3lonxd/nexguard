@@ -82,9 +82,11 @@
   {% for k, lbl in [("tcp","TCP"),("udp","UDP"),("icmp","ICMP"),("other","Diğer")] %}<tr><td>{{ lbl }}</td><td>{{ "%.0f"|format(p[k].pps) }}</td><td>{{ "%.2f"|format(p[k].mbps) }}</td></tr>{% endfor %}
   <tr><td>TCP SYN (yeni)</td><td>{{ "%.0f"|format(sn.data.syn_pps) }}</td><td>-</td></tr></tbody></table></div>
   {% if data.flood %}
-  <div class="tscroll mt"><table><thead><tr><th>IP</th><th>Tür</th><th>paket/sn</th><th>Ülke</th><th>Ağ</th><th>İşaret</th></tr></thead><tbody>
-  {% for r in data.flood %}<tr><td>{{ r.ip }}</td><td>{{ r.proto | upper }}</td><td>{{ "%.0f"|format(r.pps) }}</td><td>{{ r.country }}</td><td>{% if r.asn %}AS{{ r.asn }} {{ r.org }}{% else %}-{% endif %}</td><td>{{ r.flags | join(", ") if r.flags else "-" }}</td></tr>{% endfor %}</tbody></table></div>
-  <p class="muted small">UDP ve ICMP'de kaynak adres sahte olabilir (el sıkışma yok). Birkaç kaynaktan gelen yoğun sel gerçek adrestir; binlerce farklı kaynak genellikle sahte adresli seldir.</p>
+  <div class="tscroll mt"><table><thead><tr><th>IP</th><th>Tür</th><th>paket/sn</th><th>Ülke</th><th>Ağ</th><th>İşaret</th><th>Sahte mi?</th><th></th></tr></thead><tbody>
+  {% for r in data.flood %}<tr><td>{{ r.ip }}</td><td>{{ r.proto | upper }}</td><td>{{ "%.0f"|format(r.pps) }}</td><td>{{ r.country }}</td><td>{% if r.asn %}AS{{ r.asn }} {{ r.org }}{% else %}-{% endif %}</td><td>{{ r.flags | join(", ") if r.flags else "-" }}</td><td>{% if r.spoof %}<span class="tag warn">{{ r.spoof }}</span>{% else %}<span class="muted small">gerçek görünüyor</span>{% endif %}</td><td><a href="/kaynak?ip={{ r.ip | urlencode }}">Araştır</a></td></tr>{% endfor %}</tbody></table></div>
+  {% set sp = sn.data.spoof %}
+  {% if sp and sp.verdict %}<p class="alert-line"><strong>{{ sp.verdict }}.</strong> {{ sp.distinct | int }} farklı kaynak, paketlerin %{{ (sp.ttl_share * 100) | round | int }}'i TTL {{ sp.ttl_top | int }} ile geliyor. Bu adresleri engellemek saldırıyı durdurmaz; Savunma sayfasından sağlayıcıya kaynakta süzme isteği gönderin.</p>
+  {% else %}<p class="muted small">Sahte adres kontrolü: aynı adresin TTL'i dalgalanıyorsa, adres ayrılmış bir aralıktaysa ya da o adresin gerçek bağlantılarındaki hop sayısı tutmuyorsa satır işaretlenir. İşaretli kaynaklar otomatik engellenmez.{% if sp %} Bu örnekte {{ sp.distinct | int }} farklı sel kaynağı.{% endif %}</p>{% endif %}
   {% else %}<p class="muted">Şu an UDP/ICMP/SYN kaynağı yok.</p>{% endif %}
 {% elif sn.state == "eski" %}<p class="muted">Algılayıcının son verisi {{ sn.age }} sn önce. <code>systemctl status nexguard-sensor</code> ile kontrol edin.</p>
 {% else %}<p class="muted">Paket algılayıcı kurulu değil. TCP dışındaki sellerin kaynağı için sunucuda <code>sudo deploy/kur.sh</code> çalıştırın; algılayıcı yalnızca CAP_NET_RAW yetkisiyle başlıkları okur.</p>{% endif %}

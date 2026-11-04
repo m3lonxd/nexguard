@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Kaynak araştır - NexGuard{% endblock %}
+{% block content %}
+<h1 class="skip">Kaynak araştır</h1>
+<div class="probe">
+<section class="tile-card">
+  <h2>Kaynak araştır</h2>
+  <form method="get" action="/kaynak" class="inline">
+    <input name="ip" value="{{ query }}" placeholder="203.0.113.7" required maxlength="45" autocomplete="off" aria-label="Araştırılacak IP">
+    <button>Araştır</button>
+  </form>
+  {% if error %}<p class="alert mt">{{ error }}</p>{% endif %}
+  <p class="muted small mt">Bir IP'nin sokak adresi kimseye açık değildir; adres onu dağıtan ağa kayıtlıdır ve kullanıcıyı yalnızca o ağ bilir. Burada ağın sahibi, adres aralığı ve kötüye kullanım (abuse) adresi bölgesel kayıt kuruluşlarından (RDAP) çekilir. Bildirimi o adrese gönderdiğinizde ağ, saldırganın hesabını bulup durdurabilir. Kaynak sahte adresliyse bildirim masum bir ağa gider: önce Paket seli tablosundaki "Sahte mi?" sütununa bakın.</p>
+</section>
+{% if r %}{% set i = r.rdap %}{% set g = r.geo %}
+<div class="probe-grid">
+<section class="tile-card">
+  <h2>Ağ sahibi</h2>
+  {% if i.error %}<p class="alert">{{ i.error }}</p>{% else %}
+  <p class="stat-value small">{{ i.org or i.network or "kayıtta ad yok" }}</p>
+  <dl class="kv">
+    <dt>IP</dt><dd><code>{{ r.ip }}</code></dd>
+    {% if i.network %}<dt>Ağ</dt><dd>{{ i.network }}{% if i.handle %} <span class="muted small">({{ i.handle }})</span>{% endif %}</dd>{% endif %}
+    {% if i.range %}<dt>Aralık</dt><dd><code>{{ i.range }}</code></dd>{% endif %}
+    {% if i.country %}<dt>Kayıt ülkesi</dt><dd>{{ i.country }}</dd>{% endif %}
+    {% if i.registry %}<dt>Kayıt</dt><dd>{{ i.registry }}</dd>{% endif %}
+  </dl>{% endif %}
+</section>
+<section class="tile-card">
+  <h2>Kötüye kullanım adresi</h2>
+  {% if i.abuse %}<ul class="plain">{% for m in i.abuse %}<li><code>{{ m }}</code></li>{% endfor %}</ul>
+  {% else %}<p class="note">Kayıtta abuse adresi yok{% if not i.error %}; ağ sahibinin sitesindeki iletişim adresini kullanın{% endif %}.</p>{% endif %}
+</section>
+<section class="tile-card">
+  <h2>Konum ve ad</h2>
+  <dl class="kv">
+    <dt>Ülke</dt><dd>{{ g.country or "-" }}{% if g.cc %} ({{ g.cc }}){% endif %}</dd>
+    <dt>AS</dt><dd>{% if g.asn %}AS{{ g.asn }} {{ g.org }}{% else %}-{% endif %}</dd>
+    <dt>Ters DNS</dt><dd>{% if r.rdns %}<code>{{ r.rdns }}</code>{% else %}-{% endif %}</dd>
+    {% if g.flags %}<dt>Nitelik</dt><dd>{{ g.flags | join(", ") }}</dd>{% endif %}
+  </dl>
+</section>
+<section class="tile-card">
+  <h2>Paneldeki kanıt</h2>
+  {% set ev = r.evidence %}
+  {% if ev.block %}<p><span class="tag bad">Şu an engelli</span> <span class="small">{{ ev.block.why }}</span></p>{% endif %}
+  {% for f in ev.flood %}<p class="small">{{ f.proto | upper }} seli: {{ "%.0f"|format(f.pps) }} paket/sn, {{ "%.2f"|format(f.mbps) }} Mbit/sn{% if f.spoof %} · <span class="tag warn">{{ f.spoof }}</span>{% endif %}</p>{% endfor %}
+  {% if ev.trap %}<p class="small">Tuzakta {{ ev.trap | length }} oturum. Son: <code>{{ ev.trap[0].user }}</code> / <code>{{ ev.trap[0].password }}</code>{% if ev.trap[0].commands %}, {{ ev.trap[0].commands | length }} komut{% endif %}</p>{% endif %}
+  {% if ev.events %}<ul class="plain small">{% for e in ev.events[:8] %}<li><span class="muted">{{ e.ts }}</span> {{ e.message }}</li>{% endfor %}</ul>{% endif %}
+  {% if not (ev.block or ev.flood or ev.trap or ev.events) %}<p class="note">Bu adres hakkında kayıt yok. Bildirime kendi kanıtınızı ekleyin.</p>{% endif %}
+</section>
+</div>
+<section class="tile-card">
+  <h2>Kötüye kullanım bildirimi</h2>
+  <p class="muted small">Taslak İngilizcedir; kayıt kuruluşları ve ağlar bu dili bekler. Göndermeden önce okuyun ve düzenleyin. Bildirim yalnızca bu düğmeyle, sizin onayınızla gider.</p>
+  <form method="post" action="/m/savunma/kaynak/send">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="ip" value="{{ r.ip }}">
+    <label>Alıcı <input name="to" value="{{ r.to }}" autocomplete="off" placeholder="abuse@ornek-ag.net" required></label>
+    <label>Konu <input name="subject" value="{{ r.subject }}" maxlength="200" required></label>
+    <label>Metin <textarea name="body" rows="14" maxlength="20000" required>{{ r.body }}</textarea></label>
+    {% if r.mail %}<button>Bildirimi gönder</button>
+    {% else %}<p class="note">Göndermek için <a href="/m/savunma">Savunma</a> sayfasında e-posta (SMTP) ayarlayın; metni kopyalayıp kendi e-postanızdan da gönderebilirsiniz.</p>{% endif %}
+  </form>
+</section>
+{% endif %}
+</div>
+{% endblock %}
