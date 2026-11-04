@@ -461,3 +461,4 @@ label.check input { display: inline-block; width: auto; margin: 0; accent-color:
 .fleet .tile-card h2 { overflow-wrap: anywhere; }
 .fleet .tile-card .note { overflow-wrap: anywhere; }
 code.token { display: block; overflow-wrap: anywhere; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r); user-select: all; }
+.map-card.fit { min-height: 0; align-self: start; }
