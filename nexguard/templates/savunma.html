@@ -5,7 +5,7 @@
 {% set h = data.helper %}
 {% set lvl = 'x' if not h.installed else (2 if h.error else (1 if data.blocks else 0)) %}
 <div class="dash two">
-<section class="map-card l{{ lvl }}">
+<section class="map-card fit l{{ lvl }}">
   <div class="map-top">
     <span class="state-pill l{{ lvl }}">{{ 'KURULU DEĞİL' if not h.installed else ('HATA' if h.error else (data.blocks|length ~ ' ENGEL')) }}</span>
     <span class="map-why">{% if not h.installed %}Engel yardımcısı bu sunucuda yok; sunucuda <code>sudo deploy/kur.sh</code> çalıştırın.{% elif h.error %}{{ h.error }}{% else %}Son uygulama {{ h.when }}: {{ h.count }} kural{% if h.skipped %}, {{ h.skipped }} adres korumalı olduğu için atlandı{% endif %}.{% endif %}</span>
