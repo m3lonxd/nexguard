@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Filo - NexGuard{% endblock %}
+{% block content %}
+<h1 class="skip">Filo</h1>
+{% set names = {'ok':'Normal','warn':'Uyarı','bad':'Tehlike','idle':'Beklemede'} %}
+<div class="fleet">
+{% for c in data.cards %}
+<section class="tile-card">
+  <div class="head-row"><h2>{{ c.name }}{% if c.local %} <span class="muted small">(bu sunucu)</span>{% endif %}</h2>
+  <span class="tag {{ c.state }}">{{ 'Erişilemiyor' if not c.ok and c.state == 'bad' else names[c.state] }}</span></div>
+  {% if c.url %}<p class="muted small note">{{ c.url }}</p>{% endif %}
+  {% if not c.ok %}<p class="alert">{{ c.error }}{% if c.data %} · son veri {{ c.seen }}{% endif %}</p>{% endif %}
+  {% if c.data %}{% set d = c.data %}
+  <p class="small">Bellek %{{ d.mem_pct }} · Disk %{{ d.disk_pct }} · Yük {{ d.load1 }}/{{ d.cpus }} · Açık {{ d.uptime|uptime }}</p>
+  <p class="small">24 saatte {{ d.warn24 }} uyarı · NexGuard {{ d.version }}</p>
+  {% if c.problems %}
+  <ul class="modlist">{% for m in c.problems %}<li><span class="tag {{ m.status }}">{{ names[m.status] }}</span><span class="what"><b>{{ m.title }}</b>: {{ m.headline }}<span>{{ m.detail }}</span></span><span></span></li>{% endfor %}</ul>
+  {% else %}<p class="muted small">Tüm modüller normal.</p>{% endif %}
+  {% if not c.local %}<details><summary>Son uyarılar</summary>
+    {% if d.events %}<ul class="modlist">{% for e in d.events %}<li><span class="tag {{ 'bad' if e.level == 'error' else 'warn' }}">{{ e.module }}</span><span class="what">{{ e.message }}<span>{{ e.ts }}</span></span><span></span></li>{% endfor %}</ul>
+    {% else %}<p class="muted small">Uyarı yok.</p>{% endif %}
+  </details>{% endif %}
+  {% endif %}
+  {% if c.sid %}
+  <form method="post" action="/m/filo/remove" class="mt"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="sid" value="{{ c.sid }}"><button class="icon">Filodan çıkar</button></form>
+  {% endif %}
+</section>
+{% endfor %}
+</div>
+<div class="dash two">
+<section class="tile-card">
+  <h2>Sunucu ekle</h2>
+  <p class="muted">Uzak sunucudaki NexGuard panelinde Ayarlar &gt; Filo anahtarı'ndan bir anahtar üretin ve buraya yapıştırın. Uzak panel yalnızca kendi özetini paylaşır; buradan uzak sunucuda hiçbir işlem yapılamaz.</p>
+  <form method="post" action="/m/filo/add">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Ad <input name="name" maxlength="60" required placeholder="web-2"></label>
+    <label>Panel adresi <input name="url" type="url" required autocomplete="off" placeholder="https://panel.ornek.com"></label>
+    <label>Filo anahtarı <input name="token" type="password" required autocomplete="off" placeholder="ngf_..."></label>
+    <button>Ekle ve dene</button>
+  </form>
+</section>
+<section class="tile-card">
+  <h2>Bağlantı</h2>
+  <p class="muted">Panel varsayılan olarak yalnızca 127.0.0.1'i dinler. Uzak paneli bu sunucudan iki yolla açabilirsiniz:</p>
+  <p class="small"><b>SSH tüneli</b> (önerilen): bu sunucuda <code>ssh -N -L 9001:127.0.0.1:8787 uzak-sunucu</code> sürekli açık tutulur, adres <code>http://127.0.0.1:9001</code> olur.</p>
+  <p class="small"><b>HTTPS</b>: uzak sunucunun nginx'inde yalnızca <code>/api/v1/</code> yolunu panele yönlendirin. Düz http yalnızca yerel tünel adresine izinlidir; anahtar açık metin gitmez.</p>
+  <p class="muted small">Sunucular {{ 30 }} saniyede bir yoklanır. Bu sunucunun anahtarı: {{ ("var, " ~ data.api.created) if data.api.enabled else "yok" }}.</p>
+  <form method="post" action="/m/filo/refresh"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Şimdi yokla</button></form>
+</section>
+</div>
+{% endblock %}
