@@ -1,0 +1,8 @@
+[Unit]
+Description=NexGuard engel listesini duzenli yenile (suresi dolanlar)
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=nexguard-engel.service
+[Install]
+WantedBy=timers.target

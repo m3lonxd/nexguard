@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Savunma - NexGuard{% endblock %}
+{% block content %}
+<h1 class="skip">Savunma</h1>
+{% set h = data.helper %}
+{% set lvl = 'x' if not h.installed else (2 if h.error else (1 if data.blocks else 0)) %}
+<div class="dash two">
+<section class="map-card l{{ lvl }}">
+  <div class="map-top">
+    <span class="state-pill l{{ lvl }}">{{ 'KURULU DEĞİL' if not h.installed else ('HATA' if h.error else (data.blocks|length ~ ' ENGEL')) }}</span>
+    <span class="map-why">{% if not h.installed %}Engel yardımcısı bu sunucuda yok; sunucuda <code>sudo deploy/kur.sh</code> çalıştırın.{% elif h.error %}{{ h.error }}{% else %}Son uygulama {{ h.when }}: {{ h.count }} kural{% if h.skipped %}, {{ h.skipped }} adres korumalı olduğu için atlandı{% endif %}.{% endif %}</span>
+  </div>
+  <div class="set-body">
+  {% if data.blocks %}
+  <div class="tscroll"><table><thead><tr><th>IP</th><th>Gerekçe</th><th>Kalan</th><th></th></tr></thead><tbody>
+  {% for b in data.blocks %}<tr><td>{{ b.ip }}</td><td>{{ b.why }}{% if b.auto %} <span class="muted small">(otomatik)</span>{% endif %}</td><td>{{ b.left }} dk</td>
+  <td><form method="post" action="/m/savunma/unblock"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="ip" value="{{ b.ip }}"><button class="icon">Kaldır</button></form></td></tr>{% endfor %}
+  </tbody></table></div>
+  <form method="post" action="/m/savunma/clear" class="mt"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Tüm engelleri kaldır</button></form>
+  {% else %}<p class="muted">Engelli kaynak yok.</p>{% endif %}
+  <h2 class="mt">Elle engelle</h2>
+  <form method="post" action="/m/savunma/block" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="ip" placeholder="203.0.113.7" required maxlength="45" autocomplete="off" aria-label="IP adresi">
+    <input name="minutes" type="number" min="1" max="1440" value="60" aria-label="Süre (dakika)">
+    <button>Engelle</button>
+  </form>
+  <p class="muted small mt">Engel, bağlantı izleme ve Docker yönlendirmesinden önce (prerouting) uygulanır. Açık SSH oturumlarınızın adresi ve <code>/etc/nexguard/izinli</code> içindeki ağlar yardımcı tarafından asla engellenmez.</p>
+  </div>
+</section>
+<div>
+<section class="tile-card">
+  <h2>Otomatik engel</h2>
+  <p class="muted">Saldırı seviyesinde, aşağıdaki kaynaklar {{ data.ttl_min }} dakika engellenir ve saldırı sürdükçe yenilenir:</p>
+  <p class="small">TCP: DDoS eşiğindeki "IP başına bağlantı" saldırı değerini aşan adresler (taklit edilemez). UDP, ICMP, SYN: tek başına aşağıdaki paket hızını aşan adresler (sahte olabilir, eşik bu yüzden yüksek).</p>
+  <form method="post" action="/m/savunma/auto">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="autoblock" value="1" {{ "checked" if data.auto }}> Saldırıda otomatik engelle</label>
+    <label>Kaynak başına paket hızı eşiği (paket/sn) <input name="src_pps" type="number" min="100" value="{{ data.src_pps }}" required></label>
+    <label>Asla engellenmesin (IP veya CIDR, boşlukla ayırın) <input name="allow" value="{{ data.allow }}" autocomplete="off" placeholder="203.0.113.7 198.51.100.0/24"></label>
+    <button>Kaydet</button>
+  </form>
+</section>
+<section class="tile-card mt">
+  <h2>Cloudflare saldırı modu</h2>
+  {% set cf = data.cf %}
+  <p class="muted">Hattı dolduran saldırı sunucuya varmadan durdurulmalıdır. Alan adınız Cloudflare'den (turuncu bulut) geçiyorsa, saldırı seviyesinde bölge "Under Attack" moduna alınır, normale dönünce önceki seviyesine döner. Sunucunun gerçek IP'sine doğrudan gelen trafiği Cloudflare göremez; bu yüzden 80/443'ü yalnızca Cloudflare adreslerine açmanız gerekir.</p>
+  <p>Durum: <strong>{% if not cf.configured %}ayarlı değil{% elif cf.active %}SALDIRI MODU AÇIK{% else %}normal{% endif %}</strong>{% if cf.configured %} · {{ cf.zones }} bölge · otomatik {{ "açık" if cf.auto else "kapalı" }}{% endif %}</p>
+  {% if cf.last %}<p class="muted small">Son işlem: {{ cf.last }}</p>{% endif %}
+  <form method="post" action="/m/savunma/cf">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>API anahtarı (Zone · Zone Settings · Edit yetkisi) <input name="token" type="password" autocomplete="off" placeholder="{{ 'kayıtlı; değiştirmek için yazın' if cf.configured else 'Cloudflare API Token' }}"></label>
+    <label>Bölge (Zone) kimlikleri, virgülle <input name="zones" autocomplete="off" placeholder="{{ 'kayıtlı; değiştirmek için yazın' if cf.configured else '32 karakterlik Zone ID' }}"></label>
+    <label class="check"><input type="checkbox" name="auto" value="1" {{ "checked" if cf.auto }}> Saldırıda otomatik aç, bitince geri al</label>
+    <button>Kaydet</button>
+  </form>
+  {% if cf.configured %}
+  <div class="row mt">
+    <form method="post" action="/m/savunma/cf/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">Bağlantıyı test et</button></form>
+    <form method="post" action="/m/savunma/cf/mode"><input type="hidden" name="csrf" value="{{ csrf }}">{% if cf.active %}<button class="ghost">Normale döndür</button>{% else %}<input type="hidden" name="on" value="1"><button class="ghost">Şimdi saldırı moduna al</button>{% endif %}</form>
+    <form method="post" action="/m/savunma/cf"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="clear_cf" value="1"><button class="ghost">Sil</button></form>
+  </div>{% endif %}
+</section>
+</div>
+</div>
+{% endblock %}

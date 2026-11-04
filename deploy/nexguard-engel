@@ -1,0 +1,132 @@
+#!/usr/bin/python3 -I
+"""NexGuard engel yardımcısı (root). Panelin yazdığı engel.json'u doğrulayıp nftables'a uygular.
+
+Panel ayrıcalıksızdır ve bu dosyayı o yazar; bu yüzden içerik güvenilmez sayılır:
+- yalnızca genel (global) IPv4/IPv6 adresleri kabul edilir, en fazla MAX adet;
+- /etc/nexguard/izinli içindeki ağlar ve şu an açık SSH oturumlarının adresleri asla engellenmez;
+- süre 60 sn ile 24 saat arasına kırpılır.
+Kural, conntrack ve Docker DNAT'tan önce (prerouting, öncelik -300) çalışır; tuzak gibi
+konteynerlere giden trafik de kapsanır. Tabloyu kaldırmak: nft delete table inet nexguard
+"""
+import ipaddress
+import json
+import os
+import subprocess
+import sys
+import time
+
+DATA = os.environ.get("NEXGUARD_DATA", "/var/lib/nexguard")
+WANT = os.path.join(DATA, "engel.json")
+STATE = os.path.join(DATA, "engel.state")
+ALLOW = "/etc/nexguard/izinli"
+MAX = 2000
+TABLE = "inet nexguard"
+
+
+def ssh_peers() -> set:
+    try:
+        out = subprocess.run(["ss", "-tnpH", "state", "established"], capture_output=True, text=True,
+                             timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    peers = set()
+    for line in out.splitlines():
+        if '"sshd' not in line:
+            continue
+        parts = line.split()
+        if len(parts) >= 4:
+            host = parts[3].rsplit(":", 1)[0].strip("[]")
+            try:
+                peers.add(ipaddress.ip_address(host))
+            except ValueError:
+                pass
+    return peers
+
+
+def allow_nets() -> list:
+    nets = []
+    try:
+        with open(ALLOW) as f:
+            for line in f:
+                line = line.split("#", 1)[0].strip()
+                if line:
+                    try:
+                        nets.append(ipaddress.ip_network(line, strict=False))
+                    except ValueError:
+                        pass
+    except OSError:
+        pass
+    return nets
+
+
+def write_state(state: dict) -> None:
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+    st = os.stat(DATA)
+    os.chown(tmp, st.st_uid, st.st_gid)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, STATE)
+
+
+def nft(script: str) -> None:
+    r = subprocess.run(["nft", "-f", "-"], input=script, capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        raise RuntimeError(r.stderr.strip()[:300] or "nft hatası")
+
+
+def main() -> int:
+    now = time.time()
+    try:
+        with open(WANT) as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("biçim")
+    except (OSError, ValueError) as exc:
+        write_state({"applied": int(now), "count": 0, "skipped": 0, "error": f"okunamadı: {exc.__class__.__name__}"})
+        return 1
+    if not data.get("active"):
+        subprocess.run(["nft", "delete", "table", *TABLE.split()], capture_output=True, timeout=30)
+        write_state({"applied": int(now), "count": 0, "skipped": 0, "error": "", "active": False})
+        return 0
+    protect = ssh_peers()
+    allow = allow_nets()
+    v4, v6, skipped = [], [], 0
+    for e in data.get("block", [])[:MAX]:
+        try:
+            ip = ipaddress.ip_address(str(e["ip"]))
+            ttl = int(min(max(float(e["until"]) - now, 60), 86400))
+        except (KeyError, TypeError, ValueError):
+            skipped += 1
+            continue
+        if ip.version == 6 and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        if (not ip.is_global or ip.is_multicast or ip in protect
+                or any(ip.version == n.version and ip in n for n in allow)):
+            skipped += 1
+            continue
+        (v4 if ip.version == 4 else v6).append(f"{ip} timeout {ttl}s")
+    # Tek işlemde (atomik) sil ve yeniden kur: kurallar birikmez, arada açık kalmaz.
+    script = (
+        f"table {TABLE} {{}}\ndelete table {TABLE}\n"
+        f"table {TABLE} {{\n"
+        "  set engel4 { type ipv4_addr; flags timeout; size 65535; }\n"
+        "  set engel6 { type ipv6_addr; flags timeout; size 65535; }\n"
+        "  chain pre { type filter hook prerouting priority -300; policy accept;\n"
+        "    ip saddr @engel4 counter drop\n    ip6 saddr @engel6 counter drop\n  }\n}\n"
+    )
+    if v4:
+        script += f"add element {TABLE} engel4 {{ {', '.join(v4)} }}\n"
+    if v6:
+        script += f"add element {TABLE} engel6 {{ {', '.join(v6)} }}\n"
+    try:
+        nft(script)
+    except Exception as exc:  # noqa: BLE001
+        write_state({"applied": int(now), "count": 0, "skipped": skipped, "error": str(exc), "active": True})
+        return 1
+    write_state({"applied": int(now), "count": len(v4) + len(v6), "skipped": skipped, "error": "", "active": True})
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

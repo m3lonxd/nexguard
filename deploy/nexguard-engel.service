@@ -1,0 +1,5 @@
+[Unit]
+Description=NexGuard engel listesini nftables'a uygula
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nexguard-engel
