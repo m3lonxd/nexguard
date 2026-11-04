@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import __version__, config, db, notify, security, sysinfo
+from . import __version__, config, db, fleet, notify, security, sysinfo
 from .modules import load_modules
 
 BASE = Path(__file__).parent
@@ -205,7 +205,7 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
             row = conn.execute("SELECT totp_secret FROM users WHERE username = ?",
                                (request.session["user"],)).fetchone()
         return {"totp_enabled": bool(row and row["totp_secret"]), "totp_pending": None, "message": None,
-                "notify": notify.status()}
+                "notify": notify.status(), "api": fleet.api_status(), "api_token": None}
 
     @app.post("/settings/totp/start", response_class=HTMLResponse)
     async def totp_start(request: Request, csrf: str = Form("")):
@@ -269,6 +269,39 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
             res = notify.send("NexGuard test bildirimi.")
             request.session["flash"] = "; ".join(
                 f"{n}: {'tamam' if ok else 'hata ' + err}" for n, ok, err in res)
+        return RedirectResponse("/settings", status_code=303)
+
+    @app.get("/api/v1/ozet")
+    def api_summary(request: Request):
+        """Filo için salt okunur özet. Oturum değil, Bearer anahtarı ister."""
+        key = "api:" + client_ip(request)
+        headers = {"Cache-Control": "no-store"}
+        if limiter.blocked(key):
+            return JSONResponse({"error": "çok fazla hatalı deneme"}, status_code=429, headers=headers)
+        if not fleet.check_api_token(request.headers.get("authorization")):
+            limiter.fail(key)
+            if fleet.api_status()["enabled"]:
+                db.log_event("filo", "warning", f"Filo API: geçersiz anahtar ip={client_ip(request)}")
+            return JSONResponse({"error": "geçersiz anahtar"}, status_code=401,
+                                headers={**headers, "WWW-Authenticate": "Bearer"})
+        limiter.reset(key)
+        return JSONResponse(fleet.local_summary(modules), headers=headers)
+
+    @app.post("/settings/api/new", response_class=HTMLResponse, dependencies=guarded)
+    def api_new(request: Request):
+        token = fleet.new_api_token()
+        db.log_event("filo", "info", "Filo API anahtarı üretildi (eskisi geçersiz)")
+        # Anahtar çereze (flash) konmaz: oturum çerezi imzalı ama şifreli değil. Yalnızca bu yanıtta görünür.
+        ctx = _totp_ctx(request)
+        ctx["api_token"] = token
+        ctx["api"] = fleet.api_status()
+        return render(request, "settings.html", flush=True, page="settings", **ctx)
+
+    @app.post("/settings/api/revoke", dependencies=guarded)
+    def api_revoke(request: Request):
+        fleet.revoke_api_token()
+        db.log_event("filo", "info", "Filo API anahtarı iptal edildi")
+        request.session["flash"] = "Filo anahtarı iptal edildi; uzak paneller artık bu sunucuyu okuyamaz."
         return RedirectResponse("/settings", status_code=303)
 
     return app

@@ -42,5 +42,18 @@
     <form method="post" action="/settings/notify"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="clear" value="1"><button class="ghost">Tümünü temizle</button></form>
   </div>
 </section>
+<section class="tile-card">
+  <h2>Filo anahtarı</h2>
+  <p class="muted">Başka bir NexGuard paneli bu sunucunun özetini (durum, uyarılar, kaynak kullanımı) bu anahtarla okur. Salt okunurdur; anahtarla hiçbir ayar değiştirilemez. Sunucuda yalnızca özeti saklanır.</p>
+  {% if api_token %}
+  <p class="flash">Anahtar yalnızca şimdi gösteriliyor, kopyalayın:</p>
+  <p><code class="token">{{ api_token }}</code></p>
+  {% endif %}
+  <p>Durum: <strong>{{ ("etkin, " ~ api.created) if api.enabled else "kapalı" }}</strong></p>
+  <div class="row">
+    <form method="post" action="/settings/api/new"><input type="hidden" name="csrf" value="{{ csrf }}"><button>{{ "Yeni anahtar üret" if api.enabled else "Anahtar üret" }}</button></form>
+    {% if api.enabled %}<form method="post" action="/settings/api/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost">İptal et</button></form>{% endif %}
+  </div>
+</section>
 </div>
 {% endblock %}
