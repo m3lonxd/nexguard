@@ -49,13 +49,71 @@ def test_window_scales_to_kernel_counts():
     assert r["top"]["syn"][0][0] == "2.2.2.2"
 
 
+def ipv4_ttl(proto: int, src: str, ttl: int, l4: bytes = b"") -> bytes:
+    pkt = bytearray(ipv4(proto, src, l4))
+    pkt[8] = ttl
+    return bytes(pkt)
+
+
+def test_parse_hdr_ttl_and_ack():
+    assert sensor.parse_hdr(ipv4_ttl(17, "1.2.3.4", 50, b"\0" * 8)) == ("udp", "1.2.3.4", False, 50, False)
+    assert sensor.parse_hdr(ipv4(6, "9.9.9.9", tcp_flags(0x10)))[3:] == (64, True)
+    assert sensor.hops(50) == 14 and sensor.hops(120) == 8 and sensor.hops(250) == 5
+
+
+def test_spoof_reasons_per_source():
+    w = sensor.Window()
+    for ttl in (40, 50, 60, 70):  # aynı adres, dalgalanan TTL
+        w.add(ipv4_ttl(17, "5.5.5.5", ttl, b"\0" * 8))
+    for _ in range(4):
+        w.add(ipv4_ttl(17, "6.6.6.6", 55, b"\0" * 8))
+        w.add(ipv4_ttl(17, "7.7.7.7", 55, b"\0" * 8))
+        w.add(ipv4_ttl(17, "203.0.113.9", 55, b"\0" * 8))
+    r = w.result(1.0, baseline={"7.7.7.7": 2})
+    why = {row[0]: row[3] for row in r["top"]["udp"]}
+    assert why["5.5.5.5"].startswith("TTL tutarsız")
+    assert why["6.6.6.6"] == ""
+    assert why["7.7.7.7"].startswith("hop sayısı uyuşmuyor")
+    assert why["203.0.113.9"].startswith("ayrılmış")
+    assert r["spoof"]["verdict"] == ""
+
+
+def test_spoof_verdict_many_sources_same_ttl_and_learning():
+    w = sensor.Window()
+    for i in range(300):
+        w.add(ipv4_ttl(17, f"8.{i // 250}.{i % 250}.1", 51, b"\0" * 8))
+    w.add(ipv4_ttl(6, "9.9.9.9", 58, tcp_flags(0x10)))
+    r = w.result(1.0)
+    assert r["spoof"]["distinct"] == 300 and r["spoof"]["ttl_top"] == 51
+    assert "sahte" in r["spoof"]["verdict"]
+    assert w.learn == {"9.9.9.9": 6}
+    base = {"1.1.1.1": 3}
+    sensor.MAX_BASELINE, old = 2, sensor.MAX_BASELINE
+    try:
+        sensor.learn(base, {"2.2.2.2": 4, "3.3.3.3": 5})
+    finally:
+        sensor.MAX_BASELINE = old
+    assert base == {"2.2.2.2": 4, "3.3.3.3": 5}
+
+
+def test_candidates_skip_spoofed():
+    data = {"top": {"udp": [["3.3.3.3", 9000, 5.0, "TTL tutarsız (40-70)"], ["4.4.4.4", 9000, 5.0, ""]]},
+            "spoof": {"verdict": ""}}
+    skipped: list = []
+    out = dict(defense.candidates([], 300, data, 5000, skipped))
+    assert set(out) == {"4.4.4.4"} and skipped == [("3.3.3.3", "TTL tutarsız (40-70)")]
+    data["spoof"]["verdict"] = "tek noktadan sahte adresli sel"
+    assert defense.candidates([("1.1.1.1", 400)], 300, data, 5000) == [("1.1.1.1", "400 TCP bağlantısı")]
+
+
 def test_sensor_read_states(env):
     assert sensor.read()["state"] == "yok"
     data = sensor.Window().result(1.0)
     data["top"]["udp"] = [["1.1.1.1", 5, 1], ["<script>", 9, 9]]
     sensor.write(data)
     r = sensor.read()
-    assert r["state"] == "hazır" and r["data"]["top"]["udp"] == [["1.1.1.1", 5.0, 1.0]]
+    assert r["state"] == "hazır" and r["data"]["top"]["udp"] == [["1.1.1.1", 5.0, 1.0, ""]]
+    assert r["data"]["spoof"]["verdict"] == ""
     data["ts"] = time.time() - 100
     sensor.write(data)
     assert sensor.read()["state"] == "eski"

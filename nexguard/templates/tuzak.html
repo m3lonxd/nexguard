@@ -19,7 +19,14 @@
       <h2>Tuzakta denenen parola</h2>
       {% if data.trap_passwords %}
       <ul class="rank">{% for p, n in data.trap_passwords %}<li><code>{{ p or "(boş)" }}</code><span>{{ n }}</span></li>{% endfor %}</ul>
-      {% else %}<p class="note">Parolayı gerçek SSH kaydetmez; yalnızca tuzak görür. Henüz kayıt yok.</p>{% endif %}
+      {% else %}<p class="note">Henüz tuzağa parola denenmedi.</p>{% endif %}
+    </section>
+    {% set rs = data.real_ssh %}
+    <section class="tile-card">
+      <div class="head-row"><h2>Gerçek SSH parolası</h2><span class="tag {{ 'idle' if not rs.known else ('warn' if rs.password else 'ok') }}">{{ 'bilinmiyor' if not rs.known else ('açık' if rs.password else 'kapalı') }}</span></div>
+      {% if not rs.known %}<p class="note">sshd ayarı okunamadı.</p>
+      {% elif rs.password %}<p class="note">Gerçek SSH (port {{ rs.port }}) parola kabul ediyor. Denenen parolalar orada kaydedilmez ve doğru tahmin sunucuya girer. Anahtarınızı ekleyip test edin, sonra <code>PasswordAuthentication no</code> yapın; parola deneyen herkes yalnızca tuzağa düşer.</p>
+      {% else %}<p class="note">Gerçek SSH (port {{ rs.port }}) yalnızca anahtar kabul eder; parola sormaz, bu yüzden orada denenecek bir parola yoktur. Parola deneyen her saldırgan tuzaktadır ve yazdığı parola yukarıdaki listededir.</p>{% endif %}
     </section>
   </div>
   {% set sv = data.service %}

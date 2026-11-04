@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
-from .. import charts, db, defense, geoip, notify, sensor
+from .. import charts, db, defense, geoip, notify, sensor, upstream
 from . import Module
 
 INTERVAL = 5
@@ -215,7 +215,8 @@ class Monitor:
             for proto, rows in (s.flood or {}).get("top", {}).items():
                 if proto == "tcp":
                     continue
-                for ip, pps, _ in rows:
+                for row in rows:
+                    ip, pps = row[0], row[1]
                     key = (proto, ip)
                     c["flood"][key] = max(c["flood"].get(key, 0), pps)
             if self._ticks % 12 == 0:
@@ -253,8 +254,12 @@ class Monitor:
                 msg += f". Ülkeler: {cs}. {geo['verdict']}"
             fl = flood_sources(s.flood, 3)
             if fl:
-                msg += ". Paket seli kaynakları: " + ", ".join(f"{r['ip']} {r['proto'].upper()} {r['pps']:.0f}/sn"
-                                                            for r in fl)
+                msg += ". Paket seli kaynakları: " + ", ".join(
+                    f"{r['ip']} {r['proto'].upper()} {r['pps']:.0f}/sn" + (" (sahte olabilir)" if r["spoof"] else "")
+                    for r in fl)
+            verdict = ((s.flood or {}).get("spoof") or {}).get("verdict")
+            if verdict:
+                msg += f". {verdict}"
             db.log_event("ddos", "error" if self.level == 2 else "warning", msg)
             if self.level > self._notified_level or s.ts - self._last_notify >= COOLDOWN:
                 self.notifier(msg)
@@ -286,8 +291,9 @@ def flood_sources(flood: dict | None, limit: int = 10) -> list[dict]:
     """Algılayıcı verisinden UDP/ICMP/SYN kaynakları, paket hızına göre."""
     rows = []
     for proto in ("udp", "icmp", "syn", "other"):
-        for ip, pps, mbps in (flood or {}).get("top", {}).get(proto, []):
-            rows.append({"ip": ip, "proto": proto, "pps": pps, "mbps": mbps})
+        for row in (flood or {}).get("top", {}).get(proto, []):
+            rows.append({"ip": row[0], "proto": proto, "pps": row[1], "mbps": row[2],
+                         "spoof": row[3] if len(row) > 3 else ""})
     return sorted(rows, key=lambda r: -r["pps"])[:limit]
 
 
@@ -303,6 +309,7 @@ def _loop() -> None:
                              flood=snap["data"] if snap["state"] == "hazır" else None)
             if monitor.level == 2:
                 defense.on_attack(s.per_ip, th["conn_per_ip"][1], s.flood)
+                upstream.on_attack(s.rx_mbps, s.rx_pps, s.flood)
             if monitor.level != before:
                 defense.on_level_change(monitor.level)
             failed = False

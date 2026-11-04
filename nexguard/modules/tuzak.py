@@ -209,7 +209,17 @@ def collect() -> dict:
             lines, note = _read_journal()
             cow, installed = _read_cowrie()
             _cache.update(at=time.time(), data=build(lines, cow, installed, note))
-        return {**_cache["data"], "service": state}
+        return {**_cache["data"], "service": state, "real_ssh": real_ssh()}
+
+
+def real_ssh() -> dict:
+    """Gerçek sshd parola kabul ediyor mu? Etmiyorsa denenen her parola tuzakta görünür."""
+    from .. import checks
+    cfg = checks.sshd_effective(checks.Host())
+    if cfg is None:
+        return {"known": False, "password": None, "port": ""}
+    return {"known": True, "password": cfg.get("passwordauthentication", "yes") == "yes",
+            "port": cfg.get("port", "22")}
 
 
 def summary() -> dict:
