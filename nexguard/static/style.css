@@ -455,3 +455,9 @@ html { scroll-behavior: smooth; }
 .trap pre { max-height: 220px; margin: 0; border: 0; border-radius: 10px; color: #f6d9a8; white-space: pre-wrap; overflow-wrap: anywhere; }
 .trap .note { margin: 6px 0 0; }
 .findings > h2 { margin: 0 0 2px; }
+label.check { display: flex; align-items: center; gap: 8px; color: var(--fg); font-size: 14px; }
+label.check input { display: inline-block; width: auto; margin: 0; accent-color: var(--mark); }
+.fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin: 0 var(--pad) 14px; }
+.fleet .tile-card h2 { overflow-wrap: anywhere; }
+.fleet .tile-card .note { overflow-wrap: anywhere; }
+code.token { display: block; overflow-wrap: anywhere; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r); user-select: all; }

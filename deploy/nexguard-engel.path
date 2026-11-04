@@ -1,0 +1,6 @@
+[Unit]
+Description=NexGuard engel listesini izle
+[Path]
+PathChanged=/var/lib/nexguard/engel.json
+[Install]
+WantedBy=multi-user.target

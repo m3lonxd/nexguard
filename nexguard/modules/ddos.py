@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
-from .. import charts, db, geoip, notify
+from .. import charts, db, defense, geoip, notify, sensor
 from . import Module
 
 INTERVAL = 5
@@ -93,6 +93,7 @@ class Sample:
     top_ips: list = field(default_factory=list)
     per_ip: list = field(default_factory=list)  # (ip, bağlantı) ilk 100
     conntrack: tuple | None = None
+    flood: dict | None = None  # algılayıcı: protokol dağılımı ve UDP/ICMP/SYN kaynakları
 
     @property
     def max_per_ip(self) -> int:
@@ -147,9 +148,10 @@ class Monitor:
             threading.Thread(target=notify.send, args=(text,), daemon=True).start()
 
     def tick(self, now: float, net_dev: str, tcp_texts: list[str],
-             conntrack: tuple[int, int] | None, th: dict | None = None) -> Sample:
+             conntrack: tuple[int, int] | None, th: dict | None = None,
+             flood: dict | None = None) -> Sample:
         rx_b, rx_p = parse_net_dev(net_dev)
-        s = Sample(ts=now, conntrack=conntrack)
+        s = Sample(ts=now, conntrack=conntrack, flood=flood)
         if self._prev:
             dt = max(now - self._prev[0], 0.001)
             s.rx_pps = max(rx_p - self._prev[2], 0) / dt
@@ -203,12 +205,19 @@ class Monitor:
                 with db.session() as conn:
                     cur = conn.execute("INSERT INTO attacks (started, peak_level) VALUES (?, ?)",
                                        (time.strftime("%Y-%m-%d %H:%M:%S"), self.level))
-                self.cur = {"id": cur.lastrowid, "ips": {}, "pps": 0.0, "mbps": 0.0, "syn": 0, "level": 0}
+                self.cur = {"id": cur.lastrowid, "ips": {}, "flood": {}, "pps": 0.0, "mbps": 0.0, "syn": 0,
+                            "level": 0}
             c = self.cur
             c.update(pps=max(c["pps"], s.rx_pps), mbps=max(c["mbps"], s.rx_mbps),
                      syn=max(c["syn"], s.syn_recv), level=max(c["level"], self.level))
             for ip, n in s.per_ip:
                 c["ips"][ip] = max(c["ips"].get(ip, 0), n)
+            for proto, rows in (s.flood or {}).get("top", {}).items():
+                if proto == "tcp":
+                    continue
+                for ip, pps, _ in rows:
+                    key = (proto, ip)
+                    c["flood"][key] = max(c["flood"].get(key, 0), pps)
             if self._ticks % 12 == 0:
                 self._save_attack(ended=False)
             self._ticks += 1
@@ -219,7 +228,14 @@ class Monitor:
     def _save_attack(self, ended: bool) -> None:
         c = self.cur
         top = sorted(c["ips"].items(), key=lambda kv: -kv[1])[:30]
-        summary = json.dumps(geoip.summarize(top), ensure_ascii=False)
+        geo = geoip.summarize(top)
+        flood = sorted(c.get("flood", {}).items(), key=lambda kv: -kv[1])[:30]
+        if flood:
+            fgeo = geoip.summarize([(ip, int(pps)) for (_, ip), pps in flood])
+            for row, ((proto, _), _) in zip(fgeo["sources"], flood):
+                row["proto"] = proto
+            geo["flood"] = fgeo
+        summary = json.dumps(geo, ensure_ascii=False)
         with db.session() as conn:
             conn.execute(
                 "UPDATE attacks SET ended = ?, peak_level = ?, peak_pps = ?, peak_mbps = ?, peak_syn = ?, summary = ? WHERE id = ?",
@@ -235,6 +251,10 @@ class Monitor:
             if geo:
                 cs = ", ".join(f"{e['country']} ({e['n']})" for e in geo["countries"][:3])
                 msg += f". Ülkeler: {cs}. {geo['verdict']}"
+            fl = flood_sources(s.flood, 3)
+            if fl:
+                msg += ". Paket seli kaynakları: " + ", ".join(f"{r['ip']} {r['proto'].upper()} {r['pps']:.0f}/sn"
+                                                            for r in fl)
             db.log_event("ddos", "error" if self.level == 2 else "warning", msg)
             if self.level > self._notified_level or s.ts - self._last_notify >= COOLDOWN:
                 self.notifier(msg)
@@ -262,12 +282,29 @@ def _conntrack() -> tuple[int, int] | None:
     return (int(c), int(m)) if c.strip().isdigit() and m.strip().isdigit() else None
 
 
+def flood_sources(flood: dict | None, limit: int = 10) -> list[dict]:
+    """Algılayıcı verisinden UDP/ICMP/SYN kaynakları, paket hızına göre."""
+    rows = []
+    for proto in ("udp", "icmp", "syn", "other"):
+        for ip, pps, mbps in (flood or {}).get("top", {}).get(proto, []):
+            rows.append({"ip": ip, "proto": proto, "pps": pps, "mbps": mbps})
+    return sorted(rows, key=lambda r: -r["pps"])[:limit]
+
+
 def _loop() -> None:
     failed = False
     while True:
         try:
-            monitor.tick(time.time(), _read("/proc/net/dev"),
-                         [_read("/proc/net/tcp"), _read("/proc/net/tcp6")], _conntrack())
+            before = monitor.level
+            snap = sensor.read()
+            th = load_thresholds()
+            s = monitor.tick(time.time(), _read("/proc/net/dev"),
+                             [_read("/proc/net/tcp"), _read("/proc/net/tcp6")], _conntrack(), th,
+                             flood=snap["data"] if snap["state"] == "hazır" else None)
+            if monitor.level == 2:
+                defense.on_attack(s.per_ip, th["conn_per_ip"][1], s.flood)
+            if monitor.level != before:
+                defense.on_level_change(monitor.level)
             failed = False
         except Exception as exc:  # noqa: BLE001 - izleyici ölmemeli
             if not failed:
@@ -303,6 +340,7 @@ def _recent_attacks(limit: int = 8) -> list[dict]:
             "level": row["peak_level"], "pps": row["peak_pps"], "mbps": row["peak_mbps"],
             "syn": row["peak_syn"], "countries": (geo or {}).get("countries", [])[:4],
             "verdict": (geo or {}).get("verdict", ""), "anon_pct": (geo or {}).get("anon_pct", 0),
+            "flood": ((geo or {}).get("flood") or {}).get("sources", [])[:5],
         })
     return out
 
@@ -350,7 +388,15 @@ def collect() -> dict:
         sysctl.append({"name": name, "cur": cur, "want": want, "why": why, "ok": ok})
     pps = _series(hist, "rx_pps")
     geo = geoip.summarize(last.per_ip[:20]) if last and last.per_ip else None
+    snap = sensor.read()
+    flood = flood_sources(snap["data"] if snap["state"] == "hazır" else None, 15)
+    if flood:
+        info = geoip.summarize([(r["ip"], int(r["pps"])) for r in flood])["sources"]
+        for r, g in zip(flood, info):
+            r.update(country=g["country"], asn=g["asn"], org=g["org"], flags=g["flags"])
     return {
+        "sensor": snap, "flood": flood, "defense": {"auto": defense.enabled(), "cf": defense.cf_status(),
+                                                     "blocks": len(defense.load_blocks())},
         "level": level, "level_name": LEVELS[level], "reasons": reasons,
         "since": time.strftime("%H:%M:%S", time.localtime(since)),
         "last": last, "running": _started, "samples": len(hist),

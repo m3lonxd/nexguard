@@ -30,11 +30,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="nexguard")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run", help="Paneli başlat")
+    sub.add_parser("sensor", help="Paket algılayıcıyı başlat (CAP_NET_RAW gerekir)")
     adm = sub.add_parser("create-admin", help="Yönetici oluştur / parolasını sıfırla")
     adm.add_argument("username")
     args = parser.parse_args()
     if args.cmd == "create-admin":
         return create_admin(args.username)
+    if args.cmd == "sensor":
+        from . import sensor
+        return sensor.run()
     import uvicorn
     from .app import create_app
     uvicorn.run(create_app(), host=config.HOST, port=config.PORT, proxy_headers=False)

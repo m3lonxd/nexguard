@@ -1,0 +1,26 @@
+[Unit]
+Description=NexGuard paket algilayici (UDP/ICMP/SYN kaynaklari)
+After=network-online.target nexguard.service
+
+[Service]
+User=nexguard
+WorkingDirectory=/opt/nexguard
+Environment=NEXGUARD_DATA=/var/lib/nexguard
+ExecStart=/opt/nexguard/.venv/bin/python -m nexguard sensor
+Restart=on-failure
+RestartSec=10
+StateDirectory=nexguard
+StateDirectoryMode=0700
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_PACKET AF_UNIX
+Nice=15
+CPUQuota=25%
+MemoryMax=150M
+
+[Install]
+WantedBy=multi-user.target

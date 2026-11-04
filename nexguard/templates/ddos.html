@@ -68,9 +68,33 @@
   <section><h2>Saldırı kaydı</h2>
 {% if data.attacks %}<div class="tscroll"><table><thead><tr><th>Başlangıç</th><th>Bitiş</th><th>Seviye</th><th>Tepe paket/sn</th><th>Tepe Mbit/sn</th><th>Tepe SYN</th><th>Kaynak</th></tr></thead><tbody>
 {% for a in data.attacks %}<tr><td>{{ a.started }}</td><td>{{ a.ended or "sürüyor" }}</td><td>{{ "saldırı" if a.level >= 2 else "uyarı" }}</td><td>{{ "%.0f"|format(a.pps or 0) }}</td><td>{{ "%.1f"|format(a.mbps or 0) }}</td><td>{{ a.syn or 0 }}</td>
-<td>{% for c in a.countries %}{{ c.country }}{{ ", " if not loop.last }}{% else %}-{% endfor %}{% if a.anon_pct %} <span class="muted small">(%{{ a.anon_pct }} aracı)</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+<td>{% for c in a.countries %}{{ c.country }}{{ ", " if not loop.last }}{% else %}{% if not a.flood %}-{% endif %}{% endfor %}{% if a.anon_pct %} <span class="muted small">(%{{ a.anon_pct }} aracı)</span>{% endif %}{% if a.flood %}<br><span class="muted small">Sel: {% for f in a.flood %}{{ f.ip }} {{ (f.proto or "") | upper }}{{ ", " if not loop.last }}{% endfor %}</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
 {% else %}<p class="muted">Kayıtlı saldırı yok.</p>{% endif %}
 </section>
+</div>
+<div class="split">
+  <section><h2>Paket seli kaynakları</h2>
+{% set sn = data.sensor %}
+{% if sn.state == "hazır" %}
+  {% set p = sn.data.proto %}
+  <p class="muted small">UDP, ICMP ve el sıkışmayı tamamlamayan SYN paketleri; son örnek {{ sn.age }} sn önce, {{ sn.data.captured }} paket{% if sn.data.scale > 1 %} (çekirdek ×{{ "%.1f"|format(sn.data.scale) }} fazlasını aldı, değerler ölçeklendi){% endif %}.</p>
+  <div class="tscroll"><table><thead><tr><th>Protokol</th><th>paket/sn</th><th>Mbit/sn</th></tr></thead><tbody>
+  {% for k, lbl in [("tcp","TCP"),("udp","UDP"),("icmp","ICMP"),("other","Diğer")] %}<tr><td>{{ lbl }}</td><td>{{ "%.0f"|format(p[k].pps) }}</td><td>{{ "%.2f"|format(p[k].mbps) }}</td></tr>{% endfor %}
+  <tr><td>TCP SYN (yeni)</td><td>{{ "%.0f"|format(sn.data.syn_pps) }}</td><td>-</td></tr></tbody></table></div>
+  {% if data.flood %}
+  <div class="tscroll mt"><table><thead><tr><th>IP</th><th>Tür</th><th>paket/sn</th><th>Ülke</th><th>Ağ</th><th>İşaret</th></tr></thead><tbody>
+  {% for r in data.flood %}<tr><td>{{ r.ip }}</td><td>{{ r.proto | upper }}</td><td>{{ "%.0f"|format(r.pps) }}</td><td>{{ r.country }}</td><td>{% if r.asn %}AS{{ r.asn }} {{ r.org }}{% else %}-{% endif %}</td><td>{{ r.flags | join(", ") if r.flags else "-" }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="muted small">UDP ve ICMP'de kaynak adres sahte olabilir (el sıkışma yok). Birkaç kaynaktan gelen yoğun sel gerçek adrestir; binlerce farklı kaynak genellikle sahte adresli seldir.</p>
+  {% else %}<p class="muted">Şu an UDP/ICMP/SYN kaynağı yok.</p>{% endif %}
+{% elif sn.state == "eski" %}<p class="muted">Algılayıcının son verisi {{ sn.age }} sn önce. <code>systemctl status nexguard-sensor</code> ile kontrol edin.</p>
+{% else %}<p class="muted">Paket algılayıcı kurulu değil. TCP dışındaki sellerin kaynağı için sunucuda <code>sudo deploy/kur.sh</code> çalıştırın; algılayıcı yalnızca CAP_NET_RAW yetkisiyle başlıkları okur.</p>{% endif %}
+  </section>
+  <section><h2>Savunma</h2>
+  <p>Otomatik engel: <strong>{{ "açık" if data.defense.auto else "kapalı" }}</strong> · Engelli kaynak: <strong>{{ data.defense.blocks }}</strong></p>
+  <p>Cloudflare saldırı modu: <strong>{% if not data.defense.cf.configured %}ayarlı değil{% elif data.defense.cf.active %}AÇIK{% elif data.defense.cf.auto %}hazır (saldırıda açılır){% else %}elle{% endif %}</strong></p>
+  <p class="muted small">Hat doyuran saldırı sunucuya varmadan durdurulmalıdır. Alan adınız Cloudflare'den geçiyorsa saldırı seviyesinde Cloudflare "Under Attack" moduna alınır, bitince geri döner. Sunucu içi engel, hattı doldurmayan sellerde ve bağlantı yığan kaynaklarda işe yarar.</p>
+  <p><a class="link-btn" href="/m/savunma">Savunma ayarları</a></p>
+  </section>
 </div>
 <div class="split">
   <form method="post" action="/m/ddos/thresholds" class="wide-form"><h2>Eşikler</h2>
@@ -91,12 +115,11 @@
 {% else %}<p class="muted">Kayıtlı olay yok.</p>{% endif %}</section>
 </div>
 <section class="wide"><h2 id="onlemler">Önlem önerileri</h2>
-  <p class="muted">Panel root olmadan çalışır, bu yüzden kural uygulamaz. Aşağıdakiler sizin onayınızla uygulayacağınız önerilerdir.</p>
+  <p class="muted">Panel root olmadan çalışır; çekirdek ayarlarını değiştirmez. Aşağıdakiler sizin onayınızla uygulayacağınız önerilerdir. Kaynak engelleme <a href="/m/savunma">Savunma</a> sayfasındadır.</p>
   <div class="tscroll"><table><thead><tr><th>Çekirdek ayarı</th><th>Şu an</th><th>Önerilen</th><th></th></tr></thead><tbody>
   {% for s in data.sysctl %}<tr><td><code>{{ s.name }}</code></td><td>{{ s.cur }}</td><td>{{ s.want }}</td><td>{{ "tamam" if s.ok else s.why }}</td></tr>{% endfor %}</tbody></table></div>
   <details><summary>nftables hız sınırı / otomatik engel şablonu</summary><pre>{{ data.nft }}</pre>
   <p class="muted small">Bu şablon henüz bu makinede test edilmedi. Uygulamadan önce <code>nft -c -f</code> ile doğrulayın ve SSH oturumunuzu kaybetmemek için ikinci bir bağlantı açık tutun.</p></details>
-  <p class="muted small"><strong>Önemli:</strong> Hat doyuran (volumetrik) saldırılar sunucuda durdurulamaz; trafik size ulaşmadan önce sağlayıcı veya Cloudflare gibi bir ön katman gerekir. Bu modül tespit, bildirim ve uygulama katmanı sertleştirmesi içindir.</p>
 </section>
 <script src="/static/harita.js" defer></script>
 {% endblock %}
