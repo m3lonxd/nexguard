@@ -34,3 +34,41 @@
     videolar.forEach(oynat);
   }
 })();
+
+/* Kaydırınca belirme (yalnızca opaklık) ve kod bloklarını kopyalama. */
+(function () {
+  "use strict";
+  var bloklar = Array.prototype.slice.call(document.querySelectorAll("[data-goster]"));
+  var azHareket = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function goster(el) { el.classList.add("gor"); }
+  if (azHareket || !("IntersectionObserver" in window)) {
+    bloklar.forEach(goster);
+  } else {
+    var g = new IntersectionObserver(function (girdiler) {
+      girdiler.forEach(function (e) {
+        if (e.isIntersecting) { goster(e.target); g.unobserve(e.target); }
+      });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    bloklar.forEach(function (el) { g.observe(el); });
+  }
+
+  function kopyala(metin) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(metin);
+    return new Promise(function (coz, red) {
+      var t = document.createElement("textarea");
+      t.value = metin; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try { document.execCommand("copy") ? coz() : red(); } catch (e) { red(e); } finally { t.remove(); }
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-kopya]"), function (b) {
+    b.addEventListener("click", function () {
+      var kod = b.closest("figure").querySelector("code");
+      var ilk = b.textContent;
+      kopyala(kod.textContent).then(
+        function () { b.textContent = "Kopyalandı"; },
+        function () { b.textContent = "Kopyalanamadı"; }
+      ).then(function () { setTimeout(function () { b.textContent = ilk; }, 1600); });
+    });
+  });
+})();

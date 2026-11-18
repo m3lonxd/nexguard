@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NexGuard — Linux sunucular için güvenlik izleme</title>
-  <meta name="description" content="NexGuard, Linux sunucular için yapay zekâ destekli güvenlik izleme aracı: hafif ajan SSH brute-force saldırılarını tespit eder, IP'yi otomatik engeller, canlı panelde gösterir.">
-  <meta name="theme-color" content="#0b0e13">
+  <title>NexGuard — SSH kaba kuvvet tespiti ve otomatik engelleme</title>
+  <meta name="description" content="NexGuard, sshd kayıtlarını okuyup kaba kuvvet deneyen IP'yi bulan, nftables veya ufw ile engelleyen ve bulguyu merkezi panele yazan Linux ajanı. Sürüm 0.1.0, yalnızca SSH.">
+  <meta name="theme-color" content="#14120f">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="NexGuard — Linux sunucular için güvenlik izleme">
-  <meta property="og:description" content="SSH brute-force tespiti, otomatik IP engelleme ve canlı panel. Hafif ajan, merkezi sunucu.">
+  <meta property="og:title" content="NexGuard — SSH kaba kuvvet tespiti ve otomatik engelleme">
+  <meta property="og:description" content="Başarısız SSH girişlerini sayar, eşiği aşan IP'yi engeller, bulguyu ve alınan aksiyonu panele yazar.">
   <meta property="og:image" content="media/hero.jpg">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 4 7v8c0 7.5 5 13 12 15 7-2 12-7.500 12-15V7z' fill='%230b0e13' stroke='%2322d3ee' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='m10.5 16 4 4 7-8' fill='none' stroke='%2334d399' stroke-width='2.500' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2314120f'/%3E%3Crect x='9' y='9' width='14' height='14' fill='%23d99a2b'/%3E%3C/svg%3E">
+  <script>document.documentElement.className += " js";</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,15 +23,12 @@
 
   <header class="ust">
     <div class="kap ust-ic">
-      <a class="marka" href="#" aria-label="NexGuard, sayfa başı">
-        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5 13 12 15 7-2 12-7.5 12-15V7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m10.5 16 4 4 7-8" fill="none" stroke="var(--yesil)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>NexGuard</span>
-      </a>
+      <a class="marka" href="#" aria-label="NexGuard, sayfa başı"><i class="led" aria-hidden="true"></i>nexguard</a>
       <nav class="nav" aria-label="Ana gezinme">
         <a href="#nasil">Nasıl çalışır</a>
-        <a href="#ozellikler">Özellikler</a>
+        <a href="#sinirlar">Sınırlar</a>
         <a href="#kurulum">Kurulum</a>
-        <a href="#yol-haritasi">Yol haritası</a>
+        <a href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub</a>
       </nav>
     </div>
   </header>
@@ -45,128 +43,128 @@
         <source src="media/hero.webm" type="video/webm">
         <source src="media/hero.mp4" type="video/mp4">
       </video>
+      <div class="hero-kat" aria-hidden="true"></div>
       <div class="kap hero-ic">
-        <p class="ust-yazi">Linux sunucular için güvenlik izleme</p>
-        <h1 id="h-baslik">Sunucunuza gelen saldırıyı <em>görün</em>, kendiliğinden <em>durdurun</em></h1>
-        <p class="lead">NexGuard, SSH oturum kayıtlarını izleyen hafif bir ajan ve bulguları canlı gösteren merkezi bir panelden oluşur. Brute-force denemesini tespit eder, saldırgan IP'yi otomatik engeller.</p>
-        <div class="cta">
-          <a class="btn pri" href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub'da incele</a>
-          <a class="btn" href="#kurulum">Kurulum</a>
+        <div class="hero-metin">
+          <p class="etiket">sürüm 0.1.0 · yalnızca SSH</p>
+          <h1 id="h-baslik">SSH'ye kaba kuvvet denemesi yapan IP'yi bulur, engeller, panele yazar.</h1>
+          <p class="lead">Ajan sshd kayıtlarını okur. Aynı IP'den 5 dakika içinde 5 başarısız giriş görürse o IP'yi nftables ile (yoksa ufw ile) bir saatliğine düşürür; bulguyu ve çalıştırdığı komutu merkezi panele gönderir.</p>
+          <div class="cta">
+            <a class="btn pri" href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub</a>
+            <a class="btn" href="#kurulum">Kurulum</a>
+          </div>
         </div>
-        <p class="not">İlk sürüm 0.1.0 · .deb paketleri depoda</p>
+
+        <figure class="dokum">
+          <figcaption><span>örnek akış</span><span>README'deki sahte kayıt senaryosu, 5 deneme · kimlikler kısaltıldı</span></figcaption>
+<pre tabindex="0"><code><span class="y"># 1  /var/log/auth.log (ya da journalctl -f -u ssh -o cat)</span>
+Jan  1 10:00:01 myhost sshd[1234]: Failed password for root from 203.0.113.7 port 40001 ssh2
+Jan  1 10:00:02 myhost sshd[1234]: Failed password for root from 203.0.113.7 port 40002 ssh2
+<span class="y">[...]</span>
+Jan  1 10:00:05 myhost sshd[1234]: Failed password for root from 203.0.113.7 port 40005 ssh2
+
+<span class="y"># 2  ajan: 5. denemede eşik aşıldı  →  POST /api/v1/events</span>
+{ "type": "<span class="a">ssh_bruteforce</span>", "severity": "high",
+  "summary": "5 failed SSH logins from 203.0.113.7 in 5m0s",
+  "evidence": { "attempts": 5, "ip": "203.0.113.7",
+                "users_tried": ["root"], "window": "5m0s" } }
+
+<span class="y"># 3  responder, Tier A</span>
+<span class="a">nft add rule inet filter input ip saddr 203.0.113.7 drop comment "nexguard-&lt;action_id&gt;"</span>
+
+<span class="y"># 4  panele  →  POST /api/v1/actions, canlıya WebSocket (kind: "action")</span>
+{ "finding_id": "&hellip;", "tier": "A", "action_type": "block_ip",
+  "params": { "backend": "nft", "ip": "203.0.113.7",
+              "rule": "nexguard-&lt;action_id&gt;",
+              "status": "<span class="g">applied</span>", "ttl": "1h0m0s" } }</code></pre>
+        </figure>
       </div>
     </section>
 
-    <section class="bolum" id="nasil" aria-labelledby="h-nasil">
+    <section class="bolum" id="nasil" aria-labelledby="h-nasil" data-goster>
       <div class="kap">
-        <p class="ust-yazi">Nasıl çalışır</p>
-        <h2 id="h-nasil">Dört adım, tek akış</h2>
-        <ol class="akis">
+        <h2 id="h-nasil">Bir bulgu dört adımda panele ulaşır</h2>
+        <ol class="zincir">
           <li>
-            <span class="no">1</span>
-            <h3>Ajan izler</h3>
-            <p><code>nexguard-agentd</code> sunucuda çalışır; SSH kimlik doğrulama kayıtlarını (journald ya da <code>/var/log/auth.log</code>) okur.</p>
+            <span class="no">01</span>
+            <h3>Oku</h3>
+            <p><code>nexguard-agentd</code> sshd kayıtlarını izler. Başarısız girişler (<code>Failed password</code>, <code>Invalid user</code>) sayılır; başarılı giriş sayılmaz.</p>
+            <code class="detay">journalctl -f -u ssh -o cat<br>yoksa /var/log/auth.log</code>
           </li>
           <li>
-            <span class="no">2</span>
-            <h3>Tespit</h3>
-            <p>Aynı IP'den 5 dakika içinde 5 başarısız giriş (varsayılan) olursa <code>ssh_bruteforce</code> bulgusu üretilir. Eşik ve süre ayarlanabilir.</p>
+            <span class="no">02</span>
+            <h3>Say</h3>
+            <p>Aynı IP için pencere içindeki deneme sayısı eşiğe ulaşınca <code>ssh_bruteforce</code> bulgusu (önem: high) üretilir. Aynı seri için bir kez.</p>
+            <code class="detay">--threshold 5<br>--window 5m</code>
           </li>
           <li>
-            <span class="no">3</span>
-            <h3>Engelleme</h3>
-            <p>Ajan IP'yi nftables ile, yoksa ufw ile engeller. Engel varsayılan olarak 1 saat sürer. Güvenlik duvarı yoksa hata kaydedilir, ajan çökmez.</p>
+            <span class="no">03</span>
+            <h3>Engelle</h3>
+            <p>nft varsa <code>drop</code> kuralı eklenir, yoksa ufw denenir. Süre dolunca kural geri alınır. Bu geri alma da panele yazılır.</p>
+            <code class="detay">--block-ttl 1h<br>ufw insert 1 deny from &lt;ip&gt;</code>
           </li>
           <li>
-            <span class="no">4</span>
-            <h3>Panel</h3>
-            <p><code>nexguard-serverd</code> bulguyu ve alınan aksiyonu kaydeder, WebSocket ile canlı panele iter.</p>
+            <span class="no">04</span>
+            <h3>Bildir</h3>
+            <p>Bulgu ve aksiyon panele gider; panel SQLite'a yazar ve açık sayfalara WebSocket ile iter. Ajan ayrıca yerelde <code>actions.jsonl</code> tutar.</p>
+            <code class="detay">/api/v1/events<br>/api/v1/actions<br>/api/v1/stream</code>
           </li>
         </ol>
       </div>
     </section>
 
-    <section class="bolum alt" id="ozellikler" aria-labelledby="h-ozellik">
-      <div class="kap">
-        <p class="ust-yazi">Özellikler</p>
-        <h2 id="h-ozellik">Bugün çalışan her şey</h2>
-        <div class="izgara">
-          <article class="kart">
-            <h3>SSH brute-force tespiti</h3>
-            <p>Başarısız giriş denemelerini pencere ve eşik mantığıyla sayar; varsayılan 5 deneme / 5 dakika.</p>
-          </article>
-          <article class="kart">
-            <h3>Otomatik IP engelleme</h3>
-            <p>Tier A yanıtı: nftables, yoksa ufw ile engel. Süre (<code>--block-ttl</code>) varsayılan 1 saattir.</p>
-          </article>
-          <article class="kart">
-            <h3>Canlı panel</h3>
-            <p>Bulgular ve aksiyonlar sayfayı yenilemeden, <code>/api/v1/stream</code> WebSocket'i üzerinden ekrana düşer.</p>
-          </article>
-          <article class="kart">
-            <h3>Denetim kaydı</h3>
-            <p>Her aksiyon yerelde JSON Lines dosyasına (<code>actions.jsonl</code>) yazılır; başarısız olanlar nedeniyle birlikte.</p>
-          </article>
-          <article class="kart">
-            <h3>Hafif ajan</h3>
-            <p>Tek Go ikilisi, kendi servis hesabıyla systemd altında çalışır. Panel SQLite kullanır.</p>
-          </article>
-          <article class="kart">
-            <h3>HTTP API</h3>
-            <p><code>/api/v1/findings</code> ve <code>/api/v1/actions</code> uçlarıyla bulgulara ve aksiyonlara betikten erişin.</p>
-          </article>
+    <section class="bolum" id="sinirlar" aria-labelledby="h-sinir" data-goster>
+      <div class="kap sinir-izgara">
+        <div>
+          <h2 id="h-sinir">Şu an yapmadıkları</h2>
+          <ul class="liste">
+            <li><b>Başka tespit yok.</b> README kapsam dışı sayıyor: paket ve CVE taraması, dosya bütünlüğü izleme, rootkit taraması, yapay zekâ açıklamaları, çoklu sunucu arayüzü iyileştirmeleri.</li>
+            <li><b>İzin listesi yok.</b> Eşiği aşan her IP engellenir; kendi adresiniz de dahil.</li>
+            <li><b>Süre bellekte tutulur.</b> Ajan engel süresi dolmadan yeniden başlarsa kural otomatik silinmez.</li>
+            <li><b>Paketli birimde ufw çalışmaz.</b> Servis root dışı kullanıcıyla çalışır; ufw root ister. Yalnızca ufw olan bir makinede aksiyon <code>failed</code> olarak kaydedilir.</li>
+            <li><b>nft için zincir şart.</b> Kural <code>inet filter input</code> zincirine eklenir; zincir yoksa ufw denenir.</li>
+          </ul>
         </div>
+        <aside class="not-kutu" role="note">
+          <h3>Güvenlik notu</h3>
+          <p><code>POST /api/v1/enroll</code> kimlik doğrulamasızdır: panele erişebilen herkes ajan kaydedip bearer token alabilir. Okuma uçları (<code>/api/v1/findings</code>, <code>/api/v1/actions</code>, <code>/api/v1/stream</code>) da açıktır.</p>
+          <p>Tek kullanımlık kayıt kodu, mTLS ya da izin listesi eklenene dek paneli yalnızca güvenilir ağda çalıştırın.</p>
+        </aside>
       </div>
     </section>
 
-    <section class="bolum" id="kurulum" aria-labelledby="h-kurulum">
+    <section class="bolum" id="kurulum" aria-labelledby="h-kurulum" data-goster>
       <div class="kap">
-        <p class="ust-yazi">Kurulum</p>
-        <h2 id="h-kurulum">Kaynaktan derleyin, panele bağlayın</h2>
-        <p class="giris">Go gerektirir. Depoyu klonlayıp iki ikiliyi derleyin.</p>
-        <div class="kod-grup">
-          <figure class="kod"><figcaption>1. Derleme</figcaption>
+        <h2 id="h-kurulum">Kurulum</h2>
+        <p class="giris">Go gerekir. Aşağıdaki akış README'deki elle uçtan uca testtir: sahte bir auth.log ile engellemeyi tetikler. Gerçek bir sunucuda <code>--authlog</code> vermeyin.</p>
+        <div class="kod-izgara">
+          <div>
+            <figure class="kod"><figcaption>1 · Derle <button type="button" class="kopya" data-kopya>Kopyala</button></figcaption>
 <pre><code>git clone https://github.com/m3lonxd/nexguard
 cd nexguard
 go build -o nexguard-serverd ./cmd/server
 go build -o nexguard-agentd  ./cmd/agent</code></pre></figure>
-          <figure class="kod"><figcaption>2. Paneli başlatın</figcaption>
+            <figure class="kod"><figcaption>2 · Paneli başlat <button type="button" class="kopya" data-kopya>Kopyala</button></figcaption>
 <pre><code>./nexguard-serverd --addr :8842 --db /tmp/nexguard-test.db</code></pre></figure>
-          <figure class="kod"><figcaption>3. Ajanı panele kaydedin</figcaption>
+            <figure class="kod"><figcaption>3 · Ajanı kaydet (ikinci terminal) <button type="button" class="kopya" data-kopya>Kopyala</button></figcaption>
 <pre><code>./nexguard-agentd --enroll http://localhost:8842 --config /tmp/nexguard-agent.yaml</code></pre></figure>
-          <figure class="kod"><figcaption>4. Ajanı çalıştırın</figcaption>
+          </div>
+          <div>
+            <figure class="kod"><figcaption>4 · Sahte kayıt üret <button type="button" class="kopya" data-kopya>Kopyala</button></figcaption>
+<pre><code>for i in $(seq 1 6); do
+  echo "Jan  1 10:00:0$i myhost sshd[1234]: Failed password for root from 203.0.113.7 port 4000$i ssh2"
+done &gt; /tmp/fake-auth.log</code></pre></figure>
+            <figure class="kod"><figcaption>5 · Ajanı çalıştır <button type="button" class="kopya" data-kopya>Kopyala</button></figcaption>
 <pre><code>./nexguard-agentd --config /tmp/nexguard-agent.yaml \
+  --authlog /tmp/fake-auth.log \
   --audit-log /tmp/nexguard-actions.jsonl \
   --threshold 5 --window 5m</code></pre></figure>
-          <figure class="kod"><figcaption>5. Bulguları doğrulayın</figcaption>
+            <figure class="kod"><figcaption>6 · Doğrula <button type="button" class="kopya" data-kopya>Kopyala</button></figcaption>
 <pre><code>curl -s http://localhost:8842/api/v1/findings | jq
 curl -s http://localhost:8842/api/v1/actions  | jq</code></pre></figure>
+          </div>
         </div>
-        <p class="not">Panel: <code>http://localhost:8842/</code>. Test için <code>--authlog</code> ile sahte bir kayıt dosyası verebilirsiniz; ayrıntı için README'deki "Manual end-to-end test" bölümüne bakın.</p>
-        <h3 class="alt-baslik">.deb paketleri</h3>
-        <p>Depoda <code>packaging/</code> altında <code>nexguard-agent</code> ve <code>nexguard-server</code> için nfpm yapılandırması ve systemd birimleri var. Paketler kurulumda servisi otomatik başlatmaz; ajan, <code>/etc/nexguard/agent.yaml</code> oluşturulana (<code>--enroll</code>) dek çalışmaz.</p>
-        <figure class="kod"><figcaption>Paket üretimi (depo kökünden, nfpm kurulu olmalı)</figcaption>
-<pre><code>nfpm package --config packaging/nfpm-agent.yaml  --target dist/ --packager deb
-nfpm package --config packaging/nfpm-server.yaml --target dist/ --packager deb</code></pre></figure>
-        <div class="uyari" role="note">
-          <strong>Güvenlik notu.</strong> Ajan kaydı (<code>POST /api/v1/enroll</code>) şimdilik kimlik doğrulamasızdır. Paneli yalnızca güvenilir bir ağda çalıştırın; tek kullanımlık kod, mTLS ya da izin listesi planlanan işler arasındadır.
-        </div>
-      </div>
-    </section>
-
-    <section class="bolum alt" id="yol-haritasi" aria-labelledby="h-yol">
-      <div class="kap">
-        <p class="ust-yazi">Yol haritası</p>
-        <h2 id="h-yol">Henüz yok, planlanıyor</h2>
-        <p class="giris">Aşağıdakiler bugünkü sürümde <strong>bulunmuyor</strong>. Bilinçli olarak ilk dilimin dışında bırakıldı.</p>
-        <ul class="yol">
-          <li><span class="rozet">Planlı</span> Paket ve CVE taraması</li>
-          <li><span class="rozet">Planlı</span> Dosya bütünlüğü izleme</li>
-          <li><span class="rozet">Planlı</span> Rootkit taraması</li>
-          <li><span class="rozet">Planlı</span> Yapay zekâ açıklamaları</li>
-          <li><span class="rozet">Planlı</span> Çoklu sunucu arayüzü iyileştirmeleri</li>
-          <li><span class="rozet">Planlı</span> Kayıt için tek kullanımlık kod / mTLS / izin listesi</li>
-        </ul>
+        <p class="alt-not">nft ya da ufw yoksa engel denemesi <code>failed</code> olarak kaydedilir, ajan çökmez. Panel arayüzü: <code>http://localhost:8842/</code>. .deb için: <code>nfpm package --config packaging/nfpm-agent.yaml --target dist/ --packager deb</code> (sunucu için <code>nfpm-server.yaml</code>). Paket servisi başlatmaz; önce <code>--enroll</code> ile <code>/etc/nexguard/agent.yaml</code> oluşturun.</p>
       </div>
     </section>
 
@@ -179,12 +177,11 @@ nfpm package --config packaging/nfpm-server.yaml --target dist/ --packager deb</
         <source src="media/ikinci.webm" type="video/webm">
         <source src="media/ikinci.mp4" type="video/mp4">
       </video>
+      <div class="hero-kat" aria-hidden="true"></div>
       <div class="kap son-ic">
-        <h2 id="h-son">İlk saldırıyı kendiniz görün</h2>
-        <p>Yerelde kurun, sahte bir kayıt dosyasıyla brute-force simülasyonu çalıştırın ve panelde canlı izleyin.</p>
+        <h2 id="h-son">Kaynak kod, testler ve paketleme dosyaları GitHub'da.</h2>
         <div class="cta">
-          <a class="btn pri" href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub'da incele</a>
-          <a class="btn" href="#kurulum">Kuruluma dön</a>
+          <a class="btn pri" href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub</a>
         </div>
       </div>
     </section>
@@ -193,7 +190,7 @@ nfpm package --config packaging/nfpm-server.yaml --target dist/ --packager deb</
   <footer class="alt-bilgi">
     <div class="kap">
       <span>NexGuard 0.1.0</span>
-      <a href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub</a>
+      <a href="https://github.com/m3lonxd/nexguard" rel="noopener">github.com/m3lonxd/nexguard</a>
       <a href="#icerik">Başa dön</a>
     </div>
   </footer>
