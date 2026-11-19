@@ -19,15 +19,16 @@ type ctxKey int
 const serverIDKey ctxKey = 0
 
 type Server struct {
-	store *store.Store
-	hub   *hub
-	mux   *http.ServeMux
-	geo   *geo.Resolver
-	home  *geo.Country // sunucu adresi çözülemediğinde kullanılan konum
+	store  *store.Store
+	hub    *hub
+	mux    *http.ServeMux
+	geo    *geo.Resolver
+	home   *geo.Country // sunucu adresi çözülemediğinde kullanılan konum
+	agents *agents
 }
 
 func New(st *store.Store) *Server {
-	s := &Server{store: st, hub: newHub()}
+	s := &Server{store: st, hub: newHub(), agents: newAgents()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/enroll", s.handleEnroll)
 	mux.HandleFunc("POST /api/v1/events", s.requireAuth(s.handleEvents))
@@ -37,6 +38,11 @@ func New(st *store.Store) *Server {
 	mux.HandleFunc("GET /api/v1/findings", s.handleListFindings)
 	mux.HandleFunc("GET /api/v1/actions", s.handleListActions)
 	mux.HandleFunc("GET /api/v1/geo", s.handleGeo)
+	mux.HandleFunc("GET /api/v1/agent", s.requireAuth(s.handleAgent))
+	// Panel komut uçları Faz 1'deki diğer panel uçları gibi kimlik doğrulamasızdır;
+	// paneli yalnızca güvenilir ağa (VPN / güvenlik duvarı arkası) açın.
+	mux.HandleFunc("POST /api/v1/servers/{id}/commands", s.handleCreateCommand)
+	mux.HandleFunc("GET /api/v1/servers/{id}/commands", s.handleListCommands)
 	s.mux = mux
 	return s
 }
@@ -182,11 +188,12 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 	}
 	type serverOut struct {
 		store.Server
-		Geo *geo.Country `json:"geo,omitempty"`
+		Geo   *geo.Country `json:"geo,omitempty"`
+		Agent agentState   `json:"agent"`
 	}
 	out := make([]serverOut, 0, len(servers))
 	for _, srv := range servers {
-		o := serverOut{Server: srv}
+		o := serverOut{Server: srv, Agent: s.agents.get(srv.ID)}
 		if c, ok := s.geo.Lookup(srv.IP); ok {
 			o.Geo = &c
 		} else if s.home != nil {

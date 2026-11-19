@@ -7,13 +7,17 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"nexguard/internal/store"
 	"nexguard/internal/transport"
 )
 
 type wsMessage struct {
-	Kind    string               `json:"kind"`
-	Finding *transport.Finding   `json:"finding,omitempty"`
-	Action  *transport.ActionLog `json:"action,omitempty"`
+	Kind     string               `json:"kind"`
+	Finding  *transport.Finding   `json:"finding,omitempty"`
+	Action   *transport.ActionLog `json:"action,omitempty"`
+	Command  *store.Command       `json:"command,omitempty"`
+	ServerID string               `json:"server_id,omitempty"`
+	Agent    *agentState          `json:"agent,omitempty"`
 }
 
 var upgrader = websocket.Upgrader{

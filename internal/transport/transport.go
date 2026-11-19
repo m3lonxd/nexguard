@@ -44,3 +44,48 @@ func NewID() string {
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }
+
+// Command panelin bir ajana gönderdiği tek seferlik iştir (IP engelle,
+// engeli kaldır, izin listesi, honeypot ayarı). Ajan aynı kimliği ikinci kez
+// alırsa yeniden çalıştırmaz, önceki sonucu yollar.
+type Command struct {
+	ID        string         `json:"id"`
+	Type      string         `json:"type"`
+	Params    map[string]any `json:"params"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+// CommandResult ajanın bir komut için panele döndüğü sonuçtur.
+type CommandResult struct {
+	ID     string         `json:"id"`
+	OK     bool           `json:"ok"`
+	Result map[string]any `json:"result,omitempty"`
+	Error  string         `json:"error,omitempty"`
+}
+
+// AgentStatus ajanın bağlanınca ve durumu değişince yolladığı özettir.
+type AgentStatus struct {
+	Version  string          `json:"version,omitempty"`
+	Honeypot *HoneypotStatus `json:"honeypot,omitempty"`
+	Allow    []string        `json:"allow"`
+	Blocked  []string        `json:"blocked"`
+}
+
+type HoneypotStatus struct {
+	Enabled   bool              `json:"enabled"`
+	SSHPort   int               `json:"ssh_port"`
+	TCPPorts  []int             `json:"tcp_ports"`
+	AutoBlock bool              `json:"auto_block"`
+	Listening []int             `json:"listening"`
+	Errors    map[string]string `json:"errors,omitempty"`
+	Hits      int               `json:"hits"`
+}
+
+// AgentMessage ajan ile panel arasındaki /api/v1/agent soketinin zarfıdır.
+// Panel -> ajan: kind "command". Ajan -> panel: kind "result" ya da "status".
+type AgentMessage struct {
+	Kind    string         `json:"kind"`
+	Command *Command       `json:"command,omitempty"`
+	Result  *CommandResult `json:"result,omitempty"`
+	Status  *AgentStatus   `json:"status,omitempty"`
+}

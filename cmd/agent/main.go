@@ -13,9 +13,12 @@ import (
 
 	"nexguard/internal/collectors"
 	"nexguard/internal/detectors"
+	"nexguard/internal/honeypot"
 	"nexguard/internal/responder"
 	"nexguard/internal/transport"
 )
+
+const version = "0.2.0"
 
 func main() {
 	defaultConfigPath := ""
@@ -30,6 +33,7 @@ func main() {
 	window := flag.Duration("window", detectors.DefaultWindow, "ssh bruteforce detection window")
 	threshold := flag.Int("threshold", detectors.DefaultThreshold, "failed attempts within window to trigger a finding")
 	ttl := flag.Duration("block-ttl", responder.DefaultTTL, "how long an automatic ip block stays in place")
+	stateDir := flag.String("state-dir", "", "allowlist, honeypot ayarı ve honeypot host anahtarının dizini (varsayılan: config dizini)")
 	flag.Parse()
 
 	if *configPath == "" {
@@ -67,19 +71,62 @@ func main() {
 		pending.push(func() error { return transport.PushAction(cfg.ServerURL, cfg.Token, a) })
 	}
 
-	log.Printf("agent: running, server=%s window=%s threshold=%d", cfg.ServerURL, *window, *threshold)
-	for ev := range events {
-		finding := det.Feed(ev)
-		if finding == nil {
-			continue
+	dir := *stateDir
+	if dir == "" {
+		dir = filepath.Dir(*configPath)
+	}
+	state, err := openState(filepath.Join(dir, "state.yaml"))
+	if err != nil {
+		log.Fatalf("agent: %v", err)
+	}
+	statusCh := make(chan struct{}, 1)
+	notify := func() {
+		select {
+		case statusCh <- struct{}{}:
+		default:
 		}
-		finding.ServerID = cfg.ServerID
-		f := *finding
+	}
+	handle := func(f transport.Finding) {
+		f.ServerID = cfg.ServerID
 		log.Printf("agent: finding detected: %s (%s)", f.Summary, f.Severity)
 		pending.push(func() error { return transport.PushFinding(cfg.ServerURL, cfg.Token, f) })
-
-		if _, err := resp.Respond(f); err != nil {
+		if a, err := resp.Respond(f); err != nil {
 			log.Printf("agent: responder error (finding %s): %v", f.ID, err)
+		} else if a != nil {
+			notify()
+		}
+	}
+	prevPublish := resp.Publish
+	resp.Publish = func(a transport.ActionLog) { prevPublish(a); notify() }
+
+	reporter := honeypot.NewReporter(handle)
+	hp := &honeypot.Manager{HostKeyPath: filepath.Join(dir, "honeypot_ed25519"), OnHit: reporter.Add}
+	defer hp.Close()
+	st := state.get()
+	resp.SetAllow(st.Allow)
+	applyAutoBlock(resp, st.Honeypot)
+	if hs := hp.Apply(st.Honeypot); st.Honeypot.Enabled {
+		log.Printf("agent: honeypot listening on %v errors=%v", hs.Listening, hs.Errors)
+	}
+	go func() {
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				reporter.Flush()
+			}
+		}
+	}()
+	cmdr := &commander{resp: resp, hp: hp, state: state}
+	go commandLoop(ctx, cfg, cmdr, statusCh)
+
+	log.Printf("agent: running, server=%s window=%s threshold=%d", cfg.ServerURL, *window, *threshold)
+	for ev := range events {
+		if finding := det.Feed(ev); finding != nil {
+			handle(*finding)
 		}
 	}
 }

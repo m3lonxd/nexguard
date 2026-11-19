@@ -15,6 +15,7 @@ const (
 	EventsPath  = "/api/v1/events"
 	ActionsPath = "/api/v1/actions"
 	StreamPath  = "/api/v1/stream"
+	AgentPath   = "/api/v1/agent"
 )
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
