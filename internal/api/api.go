@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 
+	"nexguard/internal/geo"
 	"nexguard/internal/store"
 	"nexguard/internal/transport"
 )
@@ -19,6 +22,8 @@ type Server struct {
 	store *store.Store
 	hub   *hub
 	mux   *http.ServeMux
+	geo   *geo.Resolver
+	home  *geo.Country // sunucu adresi çözülemediğinde kullanılan konum
 }
 
 func New(st *store.Store) *Server {
@@ -31,8 +36,44 @@ func New(st *store.Store) *Server {
 	mux.HandleFunc("GET /api/v1/servers", s.handleListServers)
 	mux.HandleFunc("GET /api/v1/findings", s.handleListFindings)
 	mux.HandleFunc("GET /api/v1/actions", s.handleListActions)
+	mux.HandleFunc("GET /api/v1/geo", s.handleGeo)
 	s.mux = mux
 	return s
+}
+
+// SetGeo haritanın konum kaynağını bağlar. home, adresi genel internette
+// çözülemeyen (yerel ağ, NAT arkası) sunucular için gösterilecek konumdur; nil olabilir.
+func (s *Server) SetGeo(r *geo.Resolver, home *geo.Country) {
+	s.geo = r
+	s.home = home
+}
+
+// clientIP isteğin geldiği adresi döner. Panel aynı makinedeki bir ters
+// vekilin (nginx) arkasındaysa vekilin bildirdiği adres kullanılır; başka
+// yerden gelen isteklerde bu başlıklara güvenilmez.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	a, err := netip.ParseAddr(host)
+	if err != nil {
+		return host
+	}
+	if a.Unmap().IsLoopback() {
+		if v := strings.TrimSpace(r.Header.Get("X-Real-IP")); v != "" {
+			if b, err := netip.ParseAddr(v); err == nil {
+				return b.Unmap().String()
+			}
+		}
+		if v := r.Header.Get("X-Forwarded-For"); v != "" {
+			first := strings.TrimSpace(strings.Split(v, ",")[0])
+			if b, err := netip.ParseAddr(first); err == nil {
+				return b.Unmap().String()
+			}
+		}
+	}
+	return a.Unmap().String()
 }
 
 func (s *Server) Handler() http.Handler {
@@ -84,6 +125,9 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	if err := s.store.SetServerIP(id, clientIP(r)); err != nil {
+		log.Printf("api: set server ip: %v", err)
+	}
 
 	writeJSON(w, http.StatusOK, transport.EnrollResponse{ServerID: id, Token: token})
 }
@@ -94,6 +138,9 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if err := s.store.SetServerIP(serverID, clientIP(r)); err != nil {
+		log.Printf("api: set server ip: %v", err)
 	}
 	for _, f := range findings {
 		f.ServerID = serverID
@@ -133,7 +180,45 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, http.StatusOK, servers)
+	type serverOut struct {
+		store.Server
+		Geo *geo.Country `json:"geo,omitempty"`
+	}
+	out := make([]serverOut, 0, len(servers))
+	for _, srv := range servers {
+		o := serverOut{Server: srv}
+		if c, ok := s.geo.Lookup(srv.IP); ok {
+			o.Geo = &c
+		} else if s.home != nil {
+			h := *s.home
+			o.Geo = &h
+		}
+		out = append(out, o)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+const maxGeoIPs = 512
+
+// handleGeo saldırgan adreslerini ülke noktalarına çevirir:
+// GET /api/v1/geo?ip=a&ip=b -> {"enabled":true,"ips":{"a":{...}}}
+// Çözülemeyen adresler yanıtta yer almaz.
+func (s *Server) handleGeo(w http.ResponseWriter, r *http.Request) {
+	ips := r.URL.Query()["ip"]
+	if len(ips) > maxGeoIPs {
+		http.Error(w, "too many ip parameters", http.StatusBadRequest)
+		return
+	}
+	res := struct {
+		Enabled bool                   `json:"enabled"`
+		IPs     map[string]geo.Country `json:"ips"`
+	}{Enabled: s.geo.Enabled(), IPs: map[string]geo.Country{}}
+	for _, ip := range ips {
+		if c, ok := s.geo.Lookup(ip); ok {
+			res.IPs[ip] = c
+		}
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (s *Server) handleListFindings(w http.ResponseWriter, r *http.Request) {

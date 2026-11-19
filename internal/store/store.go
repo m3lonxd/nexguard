@@ -22,6 +22,7 @@ type Server struct {
 	ID         string    `json:"id"`
 	Hostname   string    `json:"hostname"`
 	OS         string    `json:"os"`
+	IP         string    `json:"ip,omitempty"`
 	EnrolledAt time.Time `json:"enrolled_at"`
 }
 
@@ -61,6 +62,36 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("apply migration %s: %w", e.Name(), err)
 		}
 	}
+	// SQLite'ta ADD COLUMN tekrar çalıştırılamadığı için sütun eklemeleri
+	// burada, var olup olmadığına bakılarak yapılır.
+	if err := s.ensureColumn("servers", "ip", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) ensureColumn(table, col, decl string) error {
+	rows, err := s.db.Query(`SELECT name FROM pragma_table_info(?)`, table)
+	if err != nil {
+		return fmt.Errorf("table info %s: %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		if name == col {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+	if _, err := s.db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, col, decl)); err != nil {
+		return fmt.Errorf("add column %s.%s: %w", table, col, err)
+	}
 	return nil
 }
 
@@ -89,6 +120,13 @@ func (s *Store) CreateServer(id, hostname, osName, tokenHash string) error {
 	return err
 }
 
+// SetServerIP sunucunun panele bağlandığı son adresi kaydeder; adres
+// değişmediyse yazma yapmaz.
+func (s *Store) SetServerIP(id, ip string) error {
+	_, err := s.db.Exec(`UPDATE servers SET ip = ? WHERE id = ? AND ip <> ?`, ip, id, ip)
+	return err
+}
+
 // VerifyToken hashes the candidate token and looks it up directly, since only
 // the hash is ever persisted.
 func (s *Store) VerifyToken(token string) (serverID string, ok bool, err error) {
@@ -105,7 +143,7 @@ func (s *Store) VerifyToken(token string) (serverID string, ok bool, err error) 
 }
 
 func (s *Store) ListServers() ([]Server, error) {
-	rows, err := s.db.Query(`SELECT id, hostname, os, enrolled_at FROM servers ORDER BY enrolled_at DESC`)
+	rows, err := s.db.Query(`SELECT id, hostname, os, ip, enrolled_at FROM servers ORDER BY enrolled_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +151,7 @@ func (s *Store) ListServers() ([]Server, error) {
 	var out []Server
 	for rows.Next() {
 		var srv Server
-		if err := rows.Scan(&srv.ID, &srv.Hostname, &srv.OS, &srv.EnrolledAt); err != nil {
+		if err := rows.Scan(&srv.ID, &srv.Hostname, &srv.OS, &srv.IP, &srv.EnrolledAt); err != nil {
 			return nil, err
 		}
 		out = append(out, srv)

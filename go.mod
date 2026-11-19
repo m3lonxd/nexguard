@@ -5,6 +5,7 @@ go 1.24.4
 require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/oschwald/maxminddb-golang v1.13.1
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.46.1
 )

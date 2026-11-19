@@ -385,25 +385,6 @@
 
   // Ekran okuyucu tabloları
   function renderSrTables(d) {
-    const tb = $("sr-terrain-body");
-    tb.textContent = "";
-    for (const r of d.rows) {
-      const tr = document.createElement("tr");
-      [r.ip, String(r.total), r.peakMin === 0 ? "şimdi" : r.peakMin + " dakika önce", r.blocked ? "Engelli" : "Engelli değil"].forEach((t) => {
-        const td = document.createElement("td");
-        td.textContent = t;
-        tr.appendChild(td);
-      });
-      tb.appendChild(tr);
-    }
-    if (!d.rows.length) {
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 4;
-      td.textContent = "Henüz deneme yok";
-      tr.appendChild(td);
-      tb.appendChild(tr);
-    }
     const hb = $("sr-hist-body");
     hb.textContent = "";
     d.hours.forEach((v, i) => {
@@ -416,12 +397,6 @@
       });
       hb.appendChild(tr);
     });
-    $("terrain").setAttribute(
-      "aria-label",
-      d.total
-        ? "Son 60 dakikada " + d.ips + " kaynaktan toplam " + d.total + " deneme; " + d.blockedCount + " IP engelli."
-        : "Son 60 dakikada henüz deneme yok."
-    );
     $("hist").setAttribute("aria-label", "Son 24 saatte saatlik deneme sayıları, toplam " + d.hours.reduce((a, b) => a + b, 0) + ".");
   }
 
@@ -469,568 +444,102 @@
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0.4px";
   }
 
-  // ---------- ARAZİ ----------
-  const NX = 420, NZ = 104;
-  const DZ = 1.5, HH = 1.15, CAM_D = 3.2, PITCH = 0.36, YAW0 = -0.2;
-  const T = setupCanvas($("terrain"), $("terrain-stage"));
-  T.bloom = document.createElement("canvas");
-  T.bctx = T.bloom.getContext("2d");
-  T.grid = { s: new Float32Array(NX * NZ), g: new Float32Array(NX * NZ), ymaxS: 8, ymaxG: 8, ymax: 8, t0: -1e9, dur: 0 };
-  T.rowE = new Float32Array(NZ).fill(1);
-  T.events = [];
-  T.cam = { S: 1, ox: 0, oy: 0 };
-  T.rows = [];
+  // ---------- SALDIRI HARİTASI ----------
+  // Son 24 saatin kaynak IP'leri ülke düzeyinde konumlanır (/api/v1/geo). Konum
+  // önbelleği oturum boyunca tutulur; çözülemeyen adres null olarak işaretlenir.
+  const MAP_HOURS = 24;
+  const geoCache = new Map();
+  let geoEnabled = null;
+  let geoPending = false;
+  const Mp = window.NexMap.create($("map"), $("map-stage"), { colors: COL, mono: MONO, onChange: () => { dirty = true; } });
+  let mapVisible = true;
 
-  (function buildTerrainPoints() {
-    const rnd = mulberry32(90210);
-    const n = NX * NZ;
-    T.n = n;
-    T.px = new Float32Array(n);
-    T.pz = new Float32Array(n);
-    T.cell = new Uint32Array(n);
-    T.iz = new Uint8Array(n);
-    T.r = new Float32Array(n);
-    T.rj = new Float32Array(n);
-    T.ph = new Float32Array(n);
-    let i = 0;
-    for (let iz = 0; iz < NZ; iz++) {
-      for (let ix = 0; ix < NX; ix++, i++) {
-        T.px[i] = -1 + (2 * (ix + rnd())) / NX;
-        T.pz[i] = (iz + rnd()) / NZ;
-        T.cell[i] = iz * NX + ix;
-        T.iz[i] = iz;
-        T.r[i] = rnd();
-        T.rj[i] = rnd();
-        T.ph[i] = rnd() * 6.2832;
-      }
+  function mapAttackers(now) {
+    const by = new Map();
+    for (const f of state.findings) {
+      const ip = ipOf(f), t = Date.parse(f.created_at);
+      if (!ip || isNaN(t) || now - t > MAP_HOURS * 3600000) continue;
+      let r = by.get(ip);
+      if (!r) { r = { ip, attempts: 0, last: 0, servers: new Set() }; by.set(ip, r); }
+      r.attempts += attemptsOf(f);
+      r.last = Math.max(r.last, t);
+      r.servers.add(f.server_id);
     }
-    // zemin saçılımı: arazinin altında seyrek, aşağı doğru sönen noktalar
-    const nf = 5200;
-    T.nf = nf;
-    T.fx = new Float32Array(nf);
-    T.fz = new Float32Array(nf);
-    T.fy = new Float32Array(nf);
-    T.fr = new Float32Array(nf);
-    for (let k = 0; k < nf; k++) {
-      T.fx[k] = -1.04 + rnd() * 2.08;
-      T.fz[k] = rnd();
-      T.fy[k] = Math.pow(rnd(), 2.2);
-      T.fr[k] = rnd();
-    }
-    // eşik düzlemi: soluk noktalı ızgara
-    const th = [];
-    for (let a = 0; a <= 64; a++) for (let b = 0; b <= 10; b++) th.push(-1 + (2 * a) / 64, b / 10);
-    T.th = Float32Array.from(th);
-    // değer gürültüsü ızgarası (tohumlu)
-    const gn = mulberry32(4242);
-    T.noise = new Float32Array(256 * 256);
-    for (let k = 0; k < T.noise.length; k++) T.noise[k] = gn();
-  })();
-
-  function vnoise(x, z) {
-    const xi = Math.floor(x), zi = Math.floor(z);
-    const fx = x - xi, fz = z - zi;
-    const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
-    const g = (a, b) => T.noise[((b & 255) << 8) | (a & 255)];
-    const a = g(xi, zi), b = g(xi + 1, zi), c = g(xi, zi + 1), d = g(xi + 1, zi + 1);
-    return a + (b - a) * sx + (c - a) * sz + (a - b - c + d) * sx * sz;
+    return [...by.values()].sort((a, b) => b.attempts - a.attempts || a.ip.localeCompare(b.ip));
   }
 
-  // Ridged multifractal: r = 1-|n|, karesi, 5 oktav, gain 0.5, lacunarity 2.1.
-  // Statik (veriden bağımsız) olduğu için bir kez hesaplanıp %98'lik dilime normalize edilir;
-  // böylece veri değişince sırt deseni aynı kalır, yalnızca zarf (envelope) yükselir.
-  function buildRidge() {
-    const out = new Float32Array(NX * NZ);
-    for (let iz = 0; iz < NZ; iz++) {
-      for (let ix = 0; ix < NX; ix++) {
-        const x = -1 + (2 * (ix + 0.5)) / NX, z = (iz + 0.5) / NZ;
-        let sum = 0, amp = 1, norm = 0, fx = 4.2, fz = 2.6, w = 1;
-        for (let o = 0; o < 5; o++) {
-          const n = vnoise(x * fx + o * 17.3, z * fz + o * 9.1) * 2 - 1;
-          let r = 1 - Math.abs(n);
-          r *= r;
-          r *= w;
-          w = clamp(r * 2, 0, 1);
-          sum += r * amp;
-          norm += amp;
-          amp *= 0.5; fx *= 2.1; fz *= 2.1;
-        }
-        out[iz * NX + ix] = sum / norm;
+  async function resolveGeo(ips) {
+    const need = ips.filter((ip) => !geoCache.has(ip));
+    if (!need.length || geoPending) return false;
+    geoPending = true;
+    try {
+      for (let i = 0; i < need.length; i += 150) {
+        const part = need.slice(i, i + 150);
+        const q = part.map((ip) => "ip=" + encodeURIComponent(ip)).join("&");
+        const res = await getJSON("/api/v1/geo?" + q);
+        geoEnabled = !!res.enabled;
+        for (const ip of part) geoCache.set(ip, (res.ips && res.ips[ip]) || null);
       }
+      return true;
+    } catch (e) {
+      // ağ hatasında önbelleğe yazılmaz; bir sonraki yenilemede yeniden denenir
+      return false;
+    } finally {
+      geoPending = false;
     }
-    const sorted = Float32Array.from(out).sort();
-    const p98 = sorted[Math.floor(sorted.length * 0.98)] || 1;
-    for (let i = 0; i < out.length; i++) out[i] = Math.min(1.2, out[i] / p98);
-    return out;
-  }
-  T.ridge = buildRidge();
-
-  const bucketX = (m) => 0.96 - (1.92 * m) / (WINDOW_MIN - 1);
-  const rowZF = (r, slots) => 1 - (r + 0.5) / slots; // en yoğun IP arkada (uzakta)
-
-  function slotsFor(d) { return Math.max(4, d.rows.length); }
-
-  const SIGX = 1.5 * (1.92 / (WINDOW_MIN - 1));
-  const sigZ = (slots) => Math.min(0.2, 0.58 / slots);
-
-  // Her IP satırı için zaman boyunca deneme yoğunluğu D_r(x) (kovalar etrafında gauss zarfı) ×
-  // satır zarfı Z_r(z); sonucu ridged gürültüyle çarpar: sırtlar yoğunluğu izler, yüzey pürüzlüdür.
-  function buildGrid(d, series) {
-    const g = new Float32Array(NX * NZ);
-    const slots = slotsFor(d);
-    const sz = sigZ(slots);
-    const D = new Float32Array(NX);
-    d.rows.forEach((r) => {
-      const b = series(r);
-      if (!b) return;
-      D.fill(0);
-      let any = false;
-      for (let m = 0; m < WINDOW_MIN; m++) {
-        const v = b[m];
-        if (!v) continue;
-        any = true;
-        const x0 = bucketX(m);
-        const ixa = Math.max(0, Math.floor(((x0 - 3.4 * SIGX + 1) / 2) * NX));
-        const ixb = Math.min(NX - 1, Math.ceil(((x0 + 3.4 * SIGX + 1) / 2) * NX));
-        for (let ix = ixa; ix <= ixb; ix++) {
-          const dx = -1 + (2 * (ix + 0.5)) / NX - x0;
-          D[ix] += v * Math.exp(-(dx * dx) / (2 * SIGX * SIGX));
-        }
-      }
-      if (!any) return;
-      const zf = rowZF(r.index, slots);
-      const iza = Math.max(0, Math.floor((zf - 3 * sz) * NZ));
-      const izb = Math.min(NZ - 1, Math.ceil((zf + 3 * sz) * NZ));
-      for (let iz = iza; iz <= izb; iz++) {
-        const dz = (iz + 0.5) / NZ - zf;
-        const ez = Math.exp(-(dz * dz) / (2 * sz * sz));
-        for (let ix = 0; ix < NX; ix++) if (D[ix] > 0.001) g[iz * NX + ix] += D[ix] * ez;
-      }
-    });
-    let peak = 0;
-    for (let i = 0; i < g.length; i++) {
-      g[i] = g[i] * (0.18 + 0.95 * T.ridge[i]) + 0.045 * T.ridge[i];
-      if (g[i] > peak) peak = g[i];
-    }
-    return { g, peak };
   }
 
-  function computeTarget(d) {
-    const { g, peak } = buildGrid(d, (r) => r.buckets);
-    // her satırın gerçek zirvesi (ızgaradaki en yüksek hücre) — işaret/çağrı konumu
-    const slots = slotsFor(d);
-    const sz = sigZ(slots);
-    for (const r of d.rows) {
-      const x0 = bucketX(r.peakMin);
-      const zf = rowZF(r.index, slots);
-      const ixa = Math.max(0, Math.floor(((x0 - 3.5 * SIGX + 1) / 2) * NX));
-      const ixb = Math.min(NX - 1, Math.ceil(((x0 + 3.5 * SIGX + 1) / 2) * NX));
-      const iza = Math.max(0, Math.floor((zf - 1.2 * sz) * NZ));
-      const izb = Math.min(NZ - 1, Math.ceil((zf + 1.2 * sz) * NZ));
-      let best = -1, bx = x0, bz = zf;
-      for (let iz = iza; iz <= izb; iz++) for (let ix = ixa; ix <= ixb; ix++) {
-        const v = g[iz * NX + ix];
-        if (v > best) { best = v; bx = -1 + (2 * (ix + 0.5)) / NX; bz = (iz + 0.5) / NZ; }
-      }
-      r.pk = { x: bx, zf: bz };
+  function updateMap(now) {
+    const all = mapAttackers(now);
+    const blocked = derived ? derived.blocked : new Set();
+    const placed = [];
+    let unresolved = 0;
+    for (const a of all) {
+      const g = geoCache.get(a.ip);
+      if (!g) { if (geoCache.has(a.ip)) unresolved++; continue; }
+      placed.push({ ip: a.ip, cc: g.cc, name: g.name, lat: g.lat, lon: g.lon, attempts: a.attempts, blocked: blocked.has(a.ip) });
     }
-    const ghost = buildGrid(d, (r) => r.ghost);
-    return { g, ymax: Math.max(8, peak * 1.2), ghost: ghost.peak > 0.2 ? ghost.g : null };
+    const targets = [];
+    for (const s of state.servers) if (s.geo) targets.push({ name: s.hostname, lat: s.geo.lat, lon: s.geo.lon });
+    let note = "";
+    if (geoEnabled === false && all.length) note = "KONUM VERİSİ KAPALI · SUNUCUYU -geoip İLE BAŞLATIN";
+    else if (unresolved) note = unresolved + " IP KONUMLANAMADI (YEREL / ÖZEL ADRES)";
+    Mp.setData(placed, targets, note);
+    const cc = new Map();
+    for (const a of placed) cc.set(a.cc, (cc.get(a.cc) || 0) + a.attempts);
+    $("map").setAttribute("aria-label", placed.length
+      ? "Son 24 saatte " + placed.length + " kaynak IP, " + cc.size + " ülke. En çok: " + [...cc.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map((x) => x[0] + " " + x[1]).join(", ") + "."
+      : "Son 24 saatte konumlanan saldırı yok.");
+    renderSrMap(all);
+    dirty = true;
+    resolveGeo(all.map((a) => a.ip)).then((changed) => { if (changed) updateMap(Date.now()); });
   }
 
-  function currentHeightArray() {
-    const G = T.grid;
-    const out = new Float32Array(NX * NZ);
-    for (let iz = 0; iz < NZ; iz++) {
-      const e = T.rowE[iz];
-      for (let ix = 0; ix < NX; ix++) {
-        const ci = iz * NX + ix;
-        out[ci] = G.s[ci] + (G.g[ci] - G.s[ci]) * e;
-      }
-    }
-    return out;
-  }
-
-  function startTween(target, now) {
-    const G = T.grid;
-    T.ghostG = target.ghost || null;
-    if (reduced()) {
-      G.s.set(target.g); G.g.set(target.g);
-      G.ymaxS = G.ymaxG = G.ymax = target.ymax;
-      T.rowE.fill(1);
-      G.t0 = -1e9;
-      return;
-    }
-    G.s = currentHeightArray();
-    G.ymaxS = G.ymax;
-    G.g = target.g;
-    G.ymaxG = target.ymax;
-    G.t0 = now;
-    G.dur = 1000;
-  }
-
-  function updateTween(now) {
-    const G = T.grid;
-    const p = clamp((now - G.t0) / G.dur, 0, 1.2);
-    if (G.t0 < 0 || p >= 1.2) {
-      if (G.t0 >= 0) { G.s.set(G.g); G.ymaxS = G.ymaxG; G.t0 = -1e9; }
-      T.rowE.fill(1);
-      G.ymax = G.ymaxG;
-      return;
-    }
-    // öndeki satırlar önce, arkadakiler biraz gecikmeli: yükselme bir tarama gibi okunur
-    for (let iz = 0; iz < NZ; iz++) {
-      const delay = (iz / NZ) * 0.3;
-      T.rowE[iz] = easeIO(clamp((p - delay) / 0.7, 0, 1));
-    }
-    G.ymax = G.ymaxS + (G.ymaxG - G.ymaxS) * easeIO(clamp(p, 0, 1));
-  }
-
-  function heightAt(x, zf) {
-    const ix = clamp(Math.floor(((x + 1) / 2) * NX), 0, NX - 1);
-    const iz = clamp(Math.floor(zf * NZ), 0, NZ - 1);
-    const ci = iz * NX + ix;
-    const G = T.grid;
-    return G.s[ci] + (G.g[ci] - G.s[ci]) * T.rowE[iz];
-  }
-
-  const view = { cT: 1, sT: 0, cP: Math.cos(PITCH), sP: Math.sin(PITCH) };
-  function setYaw(yaw) { view.cT = Math.cos(yaw); view.sT = Math.sin(yaw); }
-
-  function fitCamera() {
-    setYaw(YAW0);
-    const narrow = T.W < 520;
-    const L = narrow ? 96 : 112, R = narrow ? 18 : 64, Tp = 30, B = 40;
-    let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
-    for (const X of [-1, 1]) for (const zf of [0, 1]) for (const Y of [0, HH]) {
-      const Z = (zf - 0.5) * DZ;
-      const x1 = X * view.cT - Z * view.sT, z1 = X * view.sT + Z * view.cT;
-      const y2 = Y * view.cP + z1 * view.sP, z2 = -Y * view.sP + z1 * view.cP + CAM_D;
-      const px = x1 / z2, py = -y2 / z2;
-      minx = Math.min(minx, px); maxx = Math.max(maxx, px); miny = Math.min(miny, py); maxy = Math.max(maxy, py);
-    }
-    const aw = Math.max(50, T.W - L - R), ah = Math.max(50, T.H - Tp - B);
-    const S = Math.min(aw / (maxx - minx), ah / (maxy - miny));
-    T.cam = { S, ox: L + (aw - (maxx - minx) * S) / 2 - minx * S, oy: Tp + (ah - (maxy - miny) * S) / 2 - miny * S };
-  }
-
-  function project(X, Y, Z, out) {
-    const x1 = X * view.cT - Z * view.sT, z1 = X * view.sT + Z * view.cT;
-    const y2 = Y * view.cP + z1 * view.sP, z2 = -Y * view.sP + z1 * view.cP + CAM_D;
-    const k = T.cam.S / z2;
-    out.x = T.cam.ox + x1 * k;
-    out.y = T.cam.oy - y2 * k;
-    return out;
-  }
-
-  const P = { x: 0, y: 0 };
-
-  function drawTerrain(now) {
-    const { ctx, W, H } = T;
-    T.begin();
-    const drift = !reduced();
-    setYaw(YAW0 + (drift ? Math.sin(now / 9000) * 0.03 : 0));
-    const G = T.grid;
-    updateTween(now);
-    const invY = 1 / G.ymax;
-    const hasData = derived && derived.rows.length > 0;
-    const S = T.cam.S, ox = T.cam.ox, oy = T.cam.oy;
-    const { cT, sT, cP, sP } = view;
-
-    // bloom katmanı (yarı çözünürlük)
-    const bw = Math.max(1, Math.floor(W / 2)), bh = Math.max(1, Math.floor(H / 2));
-    if (T.bloom.width !== bw || T.bloom.height !== bh) { T.bloom.width = bw; T.bloom.height = bh; }
-    const bctx = T.bctx;
-    bctx.globalCompositeOperation = "source-over";
-    bctx.clearRect(0, 0, bw, bh);
-    bctx.globalCompositeOperation = "lighter";
-
-    ctx.globalCompositeOperation = "lighter";
-
-    // aktif tarama olayları
-    const evs = T.events.filter((e) => now - e.t0 < 1500);
-    T.events = evs;
-
-    // satır taban çizgileri (soluk noktalı kılavuz)
-    if (derived) {
-      const slots = slotsFor(derived);
-      ctx.globalAlpha = 0.5;
-      for (const r of derived.rows) {
-        const Z = (rowZF(r.index, slots) - 0.5) * DZ;
-        for (let a = 0; a <= 70; a++) {
-          const X = -1 + a / 35;
-          const x1 = X * cT - Z * sT, z1 = X * sT + Z * cT;
-          const y2 = z1 * sP, z2 = z1 * cP + CAM_D;
-          const k = S / z2;
-          ctx.drawImage(sprites[1], ox + x1 * k - 0.6, oy - y2 * k - 0.6, 1.3, 1.3);
-        }
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // zemin saçılımı
-    for (let k = 0; k < T.nf; k++) {
-      const zf = T.fz[k];
-      const Z = (zf - 0.5) * DZ;
-      const Y = -T.fy[k] * 0.2;
-      const X = T.fx[k];
-      const x1 = X * cT - Z * sT, z1 = X * sT + Z * cT;
-      const y2 = Y * cP + z1 * sP, z2 = -Y * sP + z1 * cP + CAM_D;
-      const kk = S / z2;
-      const fade = 1 - T.fy[k];
-      if (T.fr[k] > 0.5 * fade + 0.05) continue;
-      const bin = fade > 0.6 ? 1 : 0;
-      const df = 1 - 0.5 * zf;
-      ctx.globalAlpha = 0.55 * fade * df;
-      ctx.drawImage(sprites[bin], ox + x1 * kk - 0.7, oy - y2 * kk - 0.7, 1.4, 1.4);
-    }
-    ctx.globalAlpha = 1;
-
-    // eşik düzlemi (5 deneme): arazinin içinden geçen soluk noktalı düzlem
-    {
-      const Y = THRESHOLD * invY * HH;
-      ctx.globalAlpha = 0.45;
-      for (let k = 0; k < T.th.length; k += 2) {
-        const X = T.th[k], Z = (T.th[k + 1] - 0.5) * DZ;
-        const x1 = X * cT - Z * sT, z1 = X * sT + Z * cT;
-        const y2 = Y * cP + z1 * sP, z2 = -Y * sP + z1 * cP + CAM_D;
-        const kk = S / z2;
-        ctx.drawImage(sprites[2], ox + x1 * kk - 0.65, oy - y2 * kk - 0.65, 1.3, 1.3);
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // hayalet katman: önceki 60 dk penceresinin soluk kopyası (aynı sırt deseni, eski veri)
-    T.ghostMax = 0;
-    if (T.ghostG) {
-      const gg = T.ghostG;
-      for (let i = 0; i < T.n; i += 3) {
-        const hg = gg[T.cell[i]] * invY;
-        if (hg < 0.04 || T.r[i] > 0.55) continue;
-        if (hg * 1 > T.ghostMax) T.ghostMax = hg;
-        const zf = T.pz[i];
-        const Z = (zf - 0.5) * DZ;
-        const X = T.px[i];
-        const Y = Math.min(hg, 1.05) * HH;
-        const x1 = X * cT - Z * sT, z1 = X * sT + Z * cT;
-        const y2 = Y * cP + z1 * sP, z2 = -Y * sP + z1 * cP + CAM_D;
-        const kk = S / z2;
-        ctx.globalAlpha = 0.5 * (1 - 0.45 * zf);
-        ctx.drawImage(sprites[hg > 0.45 ? 1 : 0], ox + x1 * kk - 0.6, oy - y2 * kk - 0.6, 1.3, 1.3);
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // ana nokta bulutu
-    const t = drift ? now : 0;
-    const gS = G.s, gG = G.g, rowE = T.rowE;
-    for (let i = 0; i < T.n; i++) {
-      const ci = T.cell[i], iz = T.iz[i];
-      const e = rowE[iz];
-      const h = gS[ci] + (gG[ci] - gS[ci]) * e;
-      const hn = h * invY;
-      const dens = 0.2 + 0.8 * Math.min(1, hn * 3);
-      if (T.r[i] > dens) continue;
-      const zf = T.pz[i];
-      const X = T.px[i], Z = (zf - 0.5) * DZ;
-      const Y = Math.min(hn, 1.05) * HH + (T.rj[i] - 0.5) * 0.014;
-      let hp = h;
-      if (iz > 0) { const c2 = ci - NX; hp = gS[c2] + (gG[c2] - gS[c2]) * rowE[iz - 1]; }
-      const sl = (h - hp) * invY;
-      const df = 1 - 0.55 * zf;
-      let b = 0.12 + 0.7 * Math.pow(Math.min(1, hn * 1.5), 0.65) + clamp(sl * 26, -0.08, 0.3) + (T.rj[i] - 0.5) * 0.1;
-      b *= df;
-      for (let q = 0; q < evs.length; q++) {
-        const ev = evs[q];
-        const age = (now - ev.t0) / 1000;
-        const front = age / 0.9 * 1.05 - 0.05;
-        if (Math.abs(X - ev.x) < 0.13 && zf < front + 0.02) {
-          const fl = Math.abs(zf - front) < 0.035 ? 0.55 : 0.28 * (1 - age / 1.5);
-          if (fl > 0) b += fl;
-        }
-      }
-      b = clamp(b, 0, 1);
-      const bin = Math.min(5, (b * 6) | 0);
-      let sx = X, sy = Y;
-      const x1 = sx * cT - Z * sT, z1 = sx * sT + Z * cT;
-      const y2 = sy * cP + z1 * sP, z2 = -sy * sP + z1 * cP + CAM_D;
-      const kk = S / z2;
-      let px = ox + x1 * kk, py = oy - y2 * kk;
-      if (drift) { px += Math.sin(t * 0.0009 + T.ph[i]) * 0.3; py += Math.cos(t * 0.0011 + T.ph[i]) * 0.3; }
-      const size = (1.2 + 1.5 * b) * (0.75 + 0.3 * df);
-      ctx.drawImage(sprites[bin], px - size / 2, py - size / 2, size, size);
-      if (b > 0.68) {
-        // tepe sırtlarında nokta sayısını 2-3 katına çıkar: additive örtüşme beyaza doyar
-        const q1 = (T.rj[i] * 977) % 1, q2 = (T.rj[i] * 4177) % 1;
-        const s2 = size * 0.85;
-        ctx.drawImage(sprites[5], px + (q1 - 0.5) * 2.4 - s2 / 2, py + (q2 - 0.5) * 2.4 - s2 / 2, s2, s2);
-        if (b > 0.8) ctx.drawImage(sprites[5], px + (q2 - 0.5) * 2.8 - s2 / 2, py + (q1 - 0.5) * 2.8 - s2 / 2, s2, s2);
-      }
-      if (bin >= 4) bctx.drawImage(sprites[5], px * 0.5 - size * 0.5, py * 0.5 - size * 0.5, size, size);
-    }
-
-    // bloom: yalnızca en parlak noktalar, küçük yarıçap, düşük opaklık
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.3;
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(T.bloom, 0, 0, bw, bh, 0, 0, W, H);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
-
-    drawTerrainText(now, evs);
-  }
-
-  function drawTerrainText(now, evs) {
-    const { ctx, W, H } = T;
-    const narrow = W < 520;
-    const fs = narrow ? 9.5 : 10.5;
-    const d = derived;
-    ctx.textBaseline = "middle";
-
-    // zaman ekseni (ön kenar)
-    setFont(ctx, fs, COL.p3);
-    ctx.textAlign = "center";
-    const ticks = [59, 45, 30, 15, 0];
-    const zFront = -0.5 * DZ - 0.02;
-    ctx.strokeStyle = COL.p4;
-    ctx.lineWidth = 1;
-    ticks.forEach((m) => {
-      const X = bucketX(m);
-      project(X, 0, -0.5 * DZ, P);
-      const x = Math.round(P.x) + 0.5, y = Math.round(P.y);
-      ctx.beginPath(); ctx.moveTo(x, y + 3); ctx.lineTo(x, y + 8); ctx.stroke();
-      ctx.fillText(m === 0 ? "ŞİMDİ" : "-" + (m === 59 ? 60 : m) + "DK", x, y + 17);
-    });
-    // ön kenar hairline
-    project(-1, 0, -0.5 * DZ, P);
-    const fx0 = P.x, fy0 = P.y;
-    project(1, 0, -0.5 * DZ, P);
-    ctx.beginPath(); ctx.moveTo(Math.round(fx0), Math.round(fy0) + 0.5); ctx.lineTo(Math.round(P.x), Math.round(P.y) + 0.5);
-    ctx.strokeStyle = COL.p5; ctx.stroke();
-
-    const slots = d ? slotsFor(d) : 4;
-    const G = T.grid;
-    const invY = 1 / G.ymax;
-
-    // IP etiketleri (sol)
-    if (d && d.rows.length) {
-      ctx.textAlign = "right";
-      let lastY = -1e9;
-      for (const r of [...d.rows].sort((p, q) => q.index - p.index)) {
-        const Z = (rowZF(r.index, slots) - 0.5) * DZ;
-        project(-1.02, 0, Z, P);
-        if (Math.abs(P.y - lastY) < 11) continue;
-        lastY = P.y;
-        setFont(ctx, fs, r.blocked ? COL.p1 : COL.p3);
-        ctx.fillText(shortIP(r.ip, narrow ? 15 : 22), Math.round(P.x) - 6, Math.round(P.y));
-      }
-    }
-
-    // eşik etiketi (ön sağ köşe, düzlem seviyesinde)
-    {
-      const Y = THRESHOLD * invY * HH;
-      project(1.0, Y, -0.5 * DZ, P);
-      const x = Math.round(P.x), y = Math.round(P.y) + 0.5;
-      ctx.strokeStyle = COL.p4;
-      ctx.beginPath(); ctx.moveTo(x + 2, y); ctx.lineTo(x + 12, y); ctx.stroke();
-      setFont(ctx, fs, COL.p3);
-      ctx.textAlign = "left";
-      if (!narrow) {
-        ctx.fillText("EŞİK " + THRESHOLD, x + 16, y);
-      } else {
-        ctx.fillText(String(THRESHOLD), x + 14, y);
-      }
-    }
-
-    // tepe işaretleri + hairline çağrılar (en yüksek 3 tepe ve engelli IP'ler)
-    if (d && d.rows.length) {
-      const cand = d.rows.map((r) => {
-        const pk = r.pk || { x: bucketX(r.peakMin), zf: rowZF(r.index, slots) };
-        const hn = Math.min(1.05, heightAt(pk.x, pk.zf) * invY);
-        project(pk.x, hn * HH, (pk.zf - 0.5) * DZ, P);
-        return { r, px: Math.round(P.x), py: Math.round(P.y), hn };
+  function renderSrMap(all) {
+    const tb = $("sr-map-body");
+    tb.textContent = "";
+    const blocked = derived ? derived.blocked : new Set();
+    for (const a of all.slice(0, 20)) {
+      const g = geoCache.get(a.ip);
+      const tr = document.createElement("tr");
+      [a.ip, g ? g.name : "Bilinmiyor", String(a.attempts), blocked.has(a.ip) ? "Engelli" : "Engelli değil"].forEach((t) => {
+        const td = document.createElement("td");
+        td.textContent = t;
+        tr.appendChild(td);
       });
-      const top = new Set([...cand].sort((p, q) => q.hn - p.hn).slice(0, narrow ? 1 : 3).map((c) => c.r.ip));
-      const placed = [];
-      ctx.lineWidth = 1;
-      for (const c of [...cand].sort((p, q) => p.py - q.py)) {
-        const { r, px, py } = c;
-        const ev = evs.find((e) => e.ip === r.ip);
-        if (!r.blocked && !top.has(r.ip) && !ev) continue;
-        if (c.hn < 0.02) continue;
-        const col = r.blocked ? COL.warn : ev ? COL.p0 : COL.p2;
-        bracket(ctx, px, py - 6, 7, col);
-        if (r.blocked) { ctx.fillStyle = COL.warn; ctx.fillRect(px - 1, py - 7, 3, 3); }
-        const n = String(Math.round(r.buckets[r.peakMin]));
-        const tag = shortIP(r.ip, 16) + " · " + n;
-        const lab = r.blocked ? "ENGELLİ " + tag : tag;
-        ctx.font = fs + "px " + MONO;
-        const tw = Math.ceil(ctx.measureText(lab).width) + 2;
-        const left = px + 24 + tw > W - 4;
-        const dir = left ? -1 : 1;
-        // raf çakışmasını önlemek için yukarı kaydır
-        let lift = 20;
-        for (let tries = 0; tries < 6; tries++) {
-          const x0 = left ? px - 22 - tw : px + 22, y0 = py - lift;
-          if (!placed.some((o) => Math.abs(o.y - y0) < 13 && x0 < o.x1 && x0 + tw > o.x0)) { placed.push({ x0, x1: x0 + tw, y: y0 }); break; }
-          lift += 14;
-        }
-        const ly = py - lift;
-        ctx.fillStyle = "rgba(6,6,6,0.82)";
-        ctx.fillRect(left ? px - 22 - tw - 2 : px + 20, ly - 7, tw + 4, 14);
-        ctx.strokeStyle = r.blocked ? COL.warn : COL.p3;
-        ctx.beginPath();
-        ctx.moveTo(px + 0.5, py - 14); ctx.lineTo(px + 0.5, ly + 0.5); ctx.lineTo(px + 0.5 + dir * 18, ly + 0.5);
-        ctx.stroke();
-        ctx.textAlign = left ? "right" : "left";
-        const tx = px + dir * 22;
-        if (r.blocked) {
-          ctx.font = fs + "px " + MONO;
-          if (!left) {
-            const wB = ctx.measureText("ENGELLİ ").width;
-            setFont(ctx, fs, COL.warn);
-            ctx.fillText("ENGELLİ", tx, ly);
-            setFont(ctx, fs, COL.p2);
-            ctx.fillText(tag, tx + wB, ly);
-          } else {
-            const wT = ctx.measureText(tag + " ").width;
-            setFont(ctx, fs, COL.p2);
-            ctx.fillText(tag, tx, ly);
-            setFont(ctx, fs, COL.warn);
-            ctx.fillText("ENGELLİ", tx - wT, ly);
-          }
-        } else {
-          setFont(ctx, fs, COL.p2);
-          ctx.fillText(tag, tx, ly);
-        }
-      }
+      tb.appendChild(tr);
     }
-
-    // hayalet açıklaması
-    if (T.ghostMax > 0) {
-      setFont(ctx, fs, COL.p3);
-      ctx.textAlign = "left";
-      ctx.fillText("SOLUK NOKTALAR · ÖNCEKİ 60 DK", 10, H - 10);
-    }
-
-    // boş durum
-    if (!d || !d.rows.length) {
-      ctx.textAlign = "center";
-      setFont(ctx, narrow ? 12 : 14, COL.txt);
-      ctx.fillText("HENÜZ DENEME YOK", W / 2, H * 0.4);
-      setFont(ctx, fs, COL.p3);
-      ctx.fillText("SON 60 DK · EŞİK " + THRESHOLD + " DENEME · ZEMİN OKUMASI", W / 2, H * 0.4 + 22);
+    if (!all.length) {
+      const tr = document.createElement("tr"), td = document.createElement("td");
+      td.colSpan = 4; td.textContent = "Henüz saldırı yok"; tr.appendChild(td); tb.appendChild(tr);
     }
   }
 
-  function bracket(ctx, cx, cy, r, color) {
-    const l = 4;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(cx - r + 0.5, cy - r + l + 0.5); ctx.lineTo(cx - r + 0.5, cy - r + 0.5); ctx.lineTo(cx - r + l + 0.5, cy - r + 0.5);
-    ctx.moveTo(cx + r + 0.5, cy + r - l + 0.5); ctx.lineTo(cx + r + 0.5, cy + r + 0.5); ctx.lineTo(cx + r - l + 0.5, cy + r + 0.5);
-    ctx.stroke();
+  function setMapMode(mode, save) {
+    Mp.setMode(mode);
+    document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === Mp.mode)));
+    if (save) { try { localStorage.setItem("nexguard.harita", Mp.mode); } catch { /* depolama kapalı */ } }
+    dirty = true;
   }
 
   // ---------- HİSTOGRAM ----------
@@ -1159,49 +668,48 @@
   let dirty = true;
   let lastFrame = 0;
 
+  let histDirty = true;
+
   function resizeAll() {
-    const a = T.resize();
+    const a = Mp.resize();
     const b = Hh.resize();
-    if (a) fitCamera();
-    if (a || b) dirty = true;
+    if (a || b) { dirty = true; histDirty = true; }
   }
 
-  function drawAll(now) {
-    if (T.W > 1) drawTerrain(now);
-    if (Hh.W > 1) drawHist(now);
+  // Harita yalnızca görünürken ve hareket varken, histogram yalnızca değişince çizilir.
+  function drawAll(now, force) {
+    if (mapVisible && (force || dirty || Mp.animating())) Mp.draw(now);
+    if (Hh.W > 1 && (force || histDirty || Hh.vals.t0 >= 0)) { drawHist(now); histDirty = false; }
   }
 
   function loop(ts) {
     requestAnimationFrame(loop);
     if (document.hidden) return;
     if (reduced()) {
-      if (!dirty) return;
-      dirty = false;
+      if (!dirty && !histDirty) return;
       drawAll(ts);
+      dirty = false;
       return;
     }
-    if (ts - lastFrame < 30) return; // ~30 fps: sakin ve ucuz
+    if (ts - lastFrame < 33) return; // ~30 fps: sakin ve ucuz
     lastFrame = ts;
-    dirty = false;
     drawAll(ts);
+    dirty = false;
   }
 
   // ---------- veri akışı ----------
   function rebuild(opts) {
     const now = Date.now();
     derived = derive(now);
-    const target = computeTarget(derived);
-    startTween(target, performance.now());
     startHistTween(derived.hours, performance.now());
+    histDirty = true;
     renderKpis(derived);
     renderSrTables(derived);
+    updateMap(now);
     if (opts && opts.newFinding) {
       const f = opts.newFinding;
       const ip = ipOf(f);
-      const row = derived.rows.find((r) => r.ip === ip);
-      if (row && !reduced()) {
-        T.events.push({ ip, x: bucketX(0), t0: performance.now() });
-      }
+      if (ip) Mp.pulse(ip, performance.now());
       $("live").textContent = "Yeni bulgu: " + (ip || f.summary || f.type) + ", " + attemptsOf(f) + " deneme.";
     }
     dirty = true;
@@ -1324,19 +832,26 @@
     renderLists();
     resizeAll();
     derived = derive(Date.now());
-    startTween(computeTarget(derived), performance.now());
     startHistTween(derived.hours, performance.now());
     renderKpis(derived);
     renderSrTables(derived);
+    Mp.setReduced(reduced());
+    let saved = null;
+    try { saved = localStorage.getItem("nexguard.harita"); } catch { /* depolama kapalı */ }
+    setMapMode(saved === "3d" ? "3d" : "2d", false);
+    document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => setMapMode(b.dataset.mode, true)));
+    updateMap(Date.now());
 
     const ro = new ResizeObserver(resizeAll);
-    ro.observe($("terrain-stage"));
+    ro.observe($("map-stage"));
+    // ekran dışındaki harita çizilmez (mobilde aşağı kaydırınca)
+    new IntersectionObserver((es) => { mapVisible = es[0].isIntersecting; if (mapVisible) dirty = true; }).observe($("map-stage"));
     ro.observe($("hist-stage"));
     new ResizeObserver(fitRows).observe(document.querySelector(".findings"));
     new ResizeObserver(fitRows).observe(document.querySelector(".actions"));
     window.addEventListener("resize", resizeAll);
-    rmQuery.addEventListener("change", () => { rebuild(); dirty = true; });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { dirty = true; });
+    rmQuery.addEventListener("change", () => { Mp.setReduced(reduced()); rebuild(); dirty = true; });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { dirty = true; histDirty = true; });
 
     requestAnimationFrame(loop);
     refresh().then(connectStream);
@@ -1347,6 +862,6 @@
     setInterval(() => { if (!document.hidden) refresh(); }, 30000);
   }
 
-  window.__nexguard = { state, derive, rebuild, drawAll, get derived() { return derived; } };
+  window.__nexguard = { state, derive, rebuild, drawAll, map: Mp, geoCache, get derived() { return derived; } };
   init();
 })();

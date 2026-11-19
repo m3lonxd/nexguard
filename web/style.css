@@ -75,8 +75,8 @@ body::before {
   grid-template-areas:
     "meta meta"
     "err err"
-    "terrain findings"
-    "terrain actions"
+    "map findings"
+    "map actions"
     "hist servers";
   grid-template-rows: auto auto minmax(0, 1.7fr) minmax(0, 1fr) minmax(190px, 1fr);
   border: 1px solid var(--p5);
@@ -137,7 +137,7 @@ body::before {
   border-top: 1px solid var(--p5);
   padding: 10px 14px 12px;
 }
-.terrain { grid-area: terrain; display: flex; flex-direction: column; border-right: 1px solid var(--p5); min-height: 0; }
+.map { grid-area: map; display: flex; flex-direction: column; border-right: 1px solid var(--p5); min-height: 0; }
 .findings { grid-area: findings; overflow: hidden; min-height: 0; }
 .actions { grid-area: actions; overflow: hidden; min-height: 0; }
 .hist { grid-area: hist; border-right: 1px solid var(--p5); display: flex; flex-direction: column; min-height: 0; }
@@ -162,7 +162,7 @@ body::before {
 .dim { color: var(--p3); }
 .label .dim { color: var(--p3); }
 
-/* ---- Arazi paneli ---- */
+/* ---- Harita paneli ---- */
 .kpis {
   position: absolute;
   left: 14px;
@@ -275,12 +275,12 @@ table.readout {
 @media (max-width: 960px) {
   .frame {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "meta" "err" "terrain" "findings" "actions" "hist" "servers";
+    grid-template-areas: "meta" "err" "map" "findings" "actions" "hist" "servers";
     grid-template-rows: none;
     height: auto;
     min-height: 0;
   }
-  .terrain, .hist { border-right: 0; }
+  .map, .hist { border-right: 0; }
   .findings, .actions, .servers { overflow: visible; }
   .stage { flex: none; height: auto; aspect-ratio: 1.8; max-height: 480px; }
   .hstage { flex: none; height: 200px; }
@@ -291,7 +291,7 @@ table.readout {
   body { font-size: 12px; }
   .meta { gap: 3px 14px; padding: 8px 10px; }
   .panel { padding: 10px 10px 12px; }
-  .axes { display: none; }
+
   .kpi .big { font-size: 34px; }
   #f-table .c-idx, #f-table th.c-idx, #f-table td.idx { display: none; }
   #f-table .c-ip { width: 33%; }
@@ -303,3 +303,20 @@ table.readout {
   #s-table .c-en { width: 84px; }
   .readout th { font-size: 10px; letter-spacing: 0.03em; }
 }
+
+/* ---- Harita görünüm seçici (2B / 3B) ---- */
+.mode { display: flex; gap: 0; }
+.mode button {
+  font-family: inherit;
+  background: transparent;
+  border: 1px solid var(--p5);
+  color: var(--p3);
+  padding: 3px 9px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.mode button + button { border-left: 0; }
+.mode button[aria-pressed="true"] { color: var(--txt); border-color: var(--p3); }
+.mode button + button[aria-pressed="true"] { border-left: 1px solid var(--p3); margin-left: -1px; }
+.mode button:hover { color: var(--p1); }
+.mode button:focus-visible { outline: 1px solid var(--warn); outline-offset: 2px; }

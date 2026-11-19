@@ -163,3 +163,29 @@ func TestInsertActionUpsertsRevert(t *testing.T) {
 		t.Fatalf("expected params to reflect the revert, got %+v", actions[0].Params)
 	}
 }
+
+func TestServerIPColumnAndReopen(t *testing.T) {
+	path := t.TempDir() + "/ng.db"
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := NewID()
+	if err := s.CreateServer(id, "web-01", "linux", HashToken("tok")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetServerIP(id, "198.51.100.4"); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	// ikinci açılışta sütun yeniden eklenmeye çalışılmamalı
+	s, err = Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	servers, err := s.ListServers()
+	if err != nil || len(servers) != 1 || servers[0].IP != "198.51.100.4" {
+		t.Fatalf("servers = %+v, err = %v", servers, err)
+	}
+}

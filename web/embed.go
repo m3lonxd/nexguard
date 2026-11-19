@@ -4,5 +4,5 @@ package web
 
 import "embed"
 
-//go:embed index.html style.css app.js
+//go:embed index.html style.css app.js harita.js dunya.js
 var FS embed.FS

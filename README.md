@@ -98,6 +98,28 @@ resulting block action both show up through the panel's API.
    action on the dashboard, pushed live over the `/api/v1/stream` WebSocket
    as they arrive.
 
+## Saldırı haritası (GeoIP)
+
+Panel, son 24 saatin kaynak IP'lerini ülke düzeyinde bir dünya haritasında
+(2B düz harita ya da 3B küre) gösterir. Konum için DB-IP "IP to Country Lite"
+veritabanı kullanılır (CC BY 4.0, aylık güncellenir; atıf: https://db-ip.com):
+
+```sh
+mkdir -p data
+curl -fsSL https://download.db-ip.com/free/dbip-country-lite-$(date +%Y-%m).mmdb.gz | gunzip > data/dbip-country-lite.mmdb
+go run ./cmd/server --addr :8842 --db ./nexguard.db --geoip data/dbip-country-lite.mmdb --home TR
+```
+
+- `--geoip` verilmezse panel çalışır, harita konumsuz kalır.
+- Sunucunun konumu, ajanın panele bağlandığı adresten çözülür. Panel aynı
+  makinedeki nginx arkasındaysa `X-Real-IP` başlığı kullanılır.
+- Adresi yerel ağda olan (çözülemeyen) sunucular `--home` konumunda gösterilir:
+  ülke kodu (`TR`) ya da `"enlem,boylam"`.
+- Özel, yerel ve belgelendirme aralıkları (ör. 192.0.2.0/24) hiçbir zaman
+  konumlanmaz; panel bunları "konumlanamadı" diye sayar.
+- Kara noktaları ve ülke merkezleri Natural Earth 1:110m verisinden
+  (public domain) `go run ./tools/geogen` ile üretilir ve gömülüdür.
+
 ## Security note
 
 Phase 1 enrollment (`POST /api/v1/enroll`) is intentionally open/unauthenticated:

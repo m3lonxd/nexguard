@@ -9,3 +9,6 @@
 !.env.example
 *.log
 .DS_Store
+
+# GeoIP veritabanı (indirilir, depoya girmez)
+/data/
