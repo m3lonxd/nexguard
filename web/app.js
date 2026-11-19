@@ -211,6 +211,14 @@
     return s;
   }
 
+  // Satırı tıklanabilir yapar: fare, Enter ve boşluk tuşu detay çekmecesini açar.
+  function clickable(tr, fn) {
+    tr.classList.add("clickable");
+    tr.tabIndex = 0;
+    tr.addEventListener("click", () => fn(tr));
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(tr); } });
+  }
+
   function reconcile(tbody, map, wanted, build, update) {
     const keep = new Set();
     wanted.forEach((item, i) => {
@@ -262,12 +270,16 @@
         };
         tr._c = { idx: c.idx, ip: mkSpan(c.ip), sub: mkSpan(c.ip, "sub"), n: c.n, u: c.u, t: mkSpan(c.t), sev: mkSpan(c.t, "sub") };
         tr._cells = c;
+        clickable(tr, (row) => { if (row._ip) Dt.open("ip", row._ip, row); });
         return { tr };
       },
       (tr, f, i, animate) => {
         const c = tr._c;
         const ip = ipOf(f);
         const users = Array.isArray(f.evidence && f.evidence.users_tried) ? f.evidence.users_tried.join(",") : "";
+        tr._ip = ip;
+        tr.classList.toggle("hp", String(f.type || "").startsWith("honeypot"));
+        tr.setAttribute("aria-label", (ip || f.type) + " ayrıntıları");
         setText(c.idx, pad2(i + 1), false);
         setText(c.ip, ip || f.summary || f.type || "—", animate);
         setText(c.sub, hostnameFor(f.server_id) + " · " + (f.type || "—"), animate);
@@ -315,6 +327,7 @@
         const c = { rule: mkSpan(rule), sub: mkSpan(rule, "sub"), ttl: mkCell(tr, "num"), st: mkCell(tr, "num") };
         tr._c = c;
         tr._ruleCell = rule;
+        clickable(tr, (row) => { if (row._ip) Dt.open("ip", row._ip, row); });
         return { tr };
       },
       (tr, a, i, animate) => {
@@ -338,6 +351,7 @@
         setText(c.st, st.label, animate || (tr._st && tr._st !== st.label));
         tr._st = st.label;
         tr._action = a;
+        tr._ip = info.ip;
       });
   }
 
@@ -353,14 +367,22 @@
     $("s-empty").hidden = list.length > 0;
     $("s-table").hidden = list.length === 0;
     $("m-servers").textContent = String(list.length);
-    $("m-agents").textContent = String(list.length); // her kayıtlı sunucuda bir ajan çalışır
+    $("m-agents").textContent = String(list.filter((s) => s.agent && s.agent.online).length) + " / " + list.length;
+    const hpOn = list.filter((s) => s.agent && s.agent.status && s.agent.status.honeypot && s.agent.status.honeypot.enabled).length;
+    $("m-hp-n").textContent = hpOn + " / " + list.length;
+    $("m-hp").classList.toggle("on", hpOn > 0);
+    $("m-hp").disabled = list.length === 0;
     reconcile($("s-body"), rowMaps.s, shown,
       () => {
         const tr = document.createElement("tr");
         tr._c = { h: mkCell(tr), o: mkCell(tr), e: mkCell(tr, "num") };
+        clickable(tr, (row) => Dt.open("server", row._sid, row));
         return { tr };
       },
       (tr, s) => {
+        tr._sid = s.id;
+        tr.classList.toggle("online", !!(s.agent && s.agent.online));
+        tr.setAttribute("aria-label", s.hostname + " sunucu ayrıntıları");
         setText(tr._c.h, s.hostname || "—", false);
         setText(tr._c.o, s.os || "—", false);
         setText(tr._c.e, fmtShortDate(s.enrolled_at), false);
@@ -451,8 +473,17 @@
   const geoCache = new Map();
   let geoEnabled = null;
   let geoPending = false;
-  const Mp = window.NexMap.create($("map"), $("map-stage"), { colors: COL, mono: MONO, onChange: () => { dirty = true; } });
-  let mapVisible = true;
+  const Mp = window.NexMap.create($("map"), $("map-stage"), {
+    colors: COL, mono: MONO,
+    onChange: () => { dirty = true; },
+    onPick: (ip) => { if (ip) Dt.open("ip", ip, $("map-stage")); },
+  });
+  // Ekran dışındaki harita çizilmez (mobilde aşağı kaydırınca). IntersectionObserver
+  // arka planda açılan sekmede güncellenmeyebildiği için konum her karede ölçülür.
+  function mapVisible() {
+    const r = $("map-stage").getBoundingClientRect();
+    return r.width > 1 && r.bottom > 0 && r.top < window.innerHeight;
+  }
 
   function mapAttackers(now) {
     const by = new Map();
@@ -678,7 +709,7 @@
 
   // Harita yalnızca görünürken ve hareket varken, histogram yalnızca değişince çizilir.
   function drawAll(now, force) {
-    if (mapVisible && (force || dirty || Mp.animating())) Mp.draw(now);
+    if ((force || dirty || Mp.animating()) && mapVisible()) Mp.draw(now);
     if (Hh.W > 1 && (force || histDirty || Hh.vals.t0 >= 0)) { drawHist(now); histDirty = false; }
   }
 
@@ -721,6 +752,7 @@
     renderServers();
     renderMeta();
     fitRows();
+    if (Dt) Dt.refresh();
   }
 
   function setError(msg) {
@@ -789,6 +821,12 @@
         state.lastUpdate = Date.now();
         renderLists();
         rebuild({ newFinding: isNew ? f : null });
+      } else if (msg.kind === "command" && msg.command) {
+        Dt.onCommand(msg.command);
+      } else if (msg.kind === "agent" && msg.server_id && msg.agent) {
+        const srv = state.servers.find((x) => x.id === msg.server_id);
+        if (srv) { srv.agent = msg.agent; renderServers(); updateMap(Date.now()); Dt.refresh(); }
+        else refresh(); // yeni kayıt olmuş bir sunucu
       } else if (msg.kind === "action" && msg.action) {
         const a = msg.action;
         const known = state.actions.some((x) => x.id === a.id);
@@ -827,7 +865,21 @@
   }
 
   // ---------- başlangıç ----------
+  let Dt = null;
+
   function init() {
+    Dt = window.NexDetail.create({
+      $, state, setText, reduced, getJSON,
+      fmtClock, fmtDateTime, fmtShortDate, fmtCountdown,
+      ipOf, attemptsOf, actionInfo, isActiveBlock, hostnameFor,
+      geo: (ip) => geoCache.get(ip) || null,
+      geoKnown: (ip) => geoCache.has(ip),
+      onSelect: (ip) => { Mp.select(ip, performance.now()); dirty = true; },
+    });
+    $("m-hp").addEventListener("click", (e) => {
+      const list = [...state.servers].sort((a, b) => Date.parse(a.enrolled_at) - Date.parse(b.enrolled_at));
+      if (list.length) Dt.open("server", list[0].id, e.currentTarget);
+    });
     buildGrain();
     renderLists();
     resizeAll();
@@ -844,8 +896,7 @@
 
     const ro = new ResizeObserver(resizeAll);
     ro.observe($("map-stage"));
-    // ekran dışındaki harita çizilmez (mobilde aşağı kaydırınca)
-    new IntersectionObserver((es) => { mapVisible = es[0].isIntersecting; if (mapVisible) dirty = true; }).observe($("map-stage"));
+    window.addEventListener("scroll", () => { dirty = true; }, { passive: true });
     ro.observe($("hist-stage"));
     new ResizeObserver(fitRows).observe(document.querySelector(".findings"));
     new ResizeObserver(fitRows).observe(document.querySelector(".actions"));

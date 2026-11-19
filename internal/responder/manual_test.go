@@ -69,3 +69,16 @@ func TestAutoBlockTypes(t *testing.T) {
 		t.Fatalf("auto block açıkken engellenmeliydi: %+v", a)
 	}
 }
+
+func TestNeverBlocksLocalAddresses(t *testing.T) {
+	b, runner := newTestBlocker(t)
+	for _, ip := range []string{"127.0.0.1", "::1", "0.0.0.0", "169.254.1.1", "fe80::1"} {
+		a, err := b.Manual(ip, time.Hour, "c")
+		if err != nil || a.Params["status"] != "skipped" || a.Params["reason"] != "local address" {
+			t.Fatalf("%s engellenmemeliydi: %+v %v", ip, a, err)
+		}
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("yerel adres için güvenlik duvarı komutu çalıştı: %+v", runner.calls)
+	}
+}

@@ -120,6 +120,48 @@ go run ./cmd/server --addr :8842 --db ./nexguard.db --geoip data/dbip-country-li
 - Kara noktaları ve ülke merkezleri Natural Earth 1:110m verisinden
   (public domain) `go run ./tools/geogen` ile üretilir ve gömülüdür.
 
+## Panelden müdahale ve honeypot
+
+Ajan, `/api/v1/agent` üzerinden panele kalıcı bir WebSocket ile bağlanır.
+Panel bu kanaldan komut gönderir; ajan o an bağlı değilse komut kuyrukta
+bekler ve bağlanınca uygulanır. Panelde bir bulguya, aksiyona, sunucuya ya da
+haritadaki noktaya tıklamak detay çekmecesini açar.
+
+- **IP detayı:** ülke, son 24 saatin saatlik izi, denenen kullanıcılar,
+  honeypot kimlik kayıtları, olay geçmişi. Butonlar: 1 sa / 24 sa engelle,
+  engeli kaldır, izin listesine al / çıkar. Komut, IP'yi gören sunuculara
+  (hiçbiri yoksa tüm sunuculara) gider.
+- **Sunucu detayı:** ajan çevrimiçi durumu, etkin engeller, izin listesi,
+  komut geçmişi ve honeypot ayarı.
+- İzin listesindeki IP hiç engellenmez. Loopback, link-local ve belirtilmemiş
+  adresler (127.0.0.1, ::1, 169.254.0.0/16, fe80::/10, 0.0.0.0) güvenlik için
+  hiçbir zaman engellenmez.
+
+**Honeypot** iki tuzaktan oluşur:
+
+- **Sahte SSH** (ör. 2222): OpenSSH 9.2 gibi el sıkışır, her kimlik
+  doğrulama denemesini (kullanıcı, şifre, anahtar parmak izi, istemci sürümü)
+  kaydeder, hiçbir girişi kabul etmez; kabuk ya da kanal açılmaz.
+- **TCP tuzağı** (ör. 23, 3389, 5900): bağlantının ilk baytlarını 5 sn okur,
+  kaydeder ve kapatır.
+
+Dokunuşlar IP başına toplanıp `honeypot_ssh` / `honeypot_tcp` bulgusu olarak
+panele gider; "otomatik engelle" açıksa dokunan IP engellenir. Eşzamanlı 64
+bağlantı ve IP başına 4 bağlantı sınırı vardır. Ayar ve host anahtarı
+`-state-dir` dizininde (`/var/lib/nexguard`) saklanır; ajan yeniden
+başlayınca honeypot kendiliğinden açılır.
+
+Uyarılar:
+
+- Tuzak portlarına dışarıdan ulaşılması için sunucunun güvenlik duvarında
+  (UFW) açılmaları gerekir; ajan güvenlik duvarına bu amaçla dokunmaz.
+- 1024 altı portlar `CAP_NET_BIND_SERVICE` ister (systemd unit'inde var).
+- Gerçek SSH portunu (22) tuzak olarak seçmeyin.
+- Panelin komut uçları (`POST /api/v1/servers/{id}/commands`) Faz 1'deki
+  diğer panel uçları gibi kimlik doğrulamasızdır: panele erişen herkes IP
+  engelleyip honeypot açabilir. Paneli yalnızca güvenilir ağa (VPN /
+  güvenlik duvarı arkası) açın.
+
 ## Security note
 
 Phase 1 enrollment (`POST /api/v1/enroll`) is intentionally open/unauthenticated:

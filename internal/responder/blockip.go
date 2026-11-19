@@ -157,6 +157,13 @@ func (b *BlockIP) apply(ip, findingID, tier string, ttl time.Duration, extra map
 		action.Params = params(map[string]any{"status": "skipped", "ip": ip, "reason": "invalid ip format"})
 		return b.finish(action)
 	}
+	// Loopback, link-local and unspecified addresses are never blocked: a drop
+	// rule for them would cut the host off from its own services (a local
+	// honeypot probe or a misattributed log line must not take the box down).
+	if pip := net.ParseIP(ip); pip.IsLoopback() || pip.IsUnspecified() || pip.IsLinkLocalUnicast() || pip.IsLinkLocalMulticast() {
+		action.Params = params(map[string]any{"status": "skipped", "ip": ip, "reason": "local address"})
+		return b.finish(action)
+	}
 
 	b.mu.Lock()
 	b.init()

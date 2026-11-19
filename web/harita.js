@@ -19,6 +19,7 @@
       lon0: 35, pitch: 22 * RAD, // 3B görüş: başlangıçta merkez (Türkiye) önde
       attackers: [], targets: [], note: "",
       pulses: [], drag: null, lastT: 0, idleSince: 0, reduced: false,
+      screen: [], selected: null, spin: null, // son karede çizilen işaretlerin ekran konumu (tıklama için)
     };
     const layer = document.createElement("canvas");
     const lctx = layer.getContext("2d");
@@ -140,7 +141,12 @@
     function draw(now) {
       if (m.W < 2) return;
       const dt = m.lastT ? Math.min(0.1, (now - m.lastT) / 1000) : 0; m.lastT = now;
-      if (m.mode === "3d" && !m.drag && !m.reduced) m.lon0 = (m.lon0 + dt * 3) % 360;
+      if (m.spin) {
+        // seçilen IP'ye yumuşak dönüş
+        const e = Math.min(1, (now - m.spin.t0) / 900), k = e * e * (3 - 2 * e);
+        m.lon0 = m.spin.from + m.spin.d * k;
+        if (e >= 1) m.spin = null;
+      } else if (m.mode === "3d" && !m.drag && !m.reduced && !m.selected) m.lon0 = (m.lon0 + dt * 3) % 360;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle = COL.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -156,7 +162,7 @@
         for (let k = 0; k < top.length; k++) {
           const a = top[k], pts = arcPoints(a, tgt), vis = pts.filter((p) => p[2]);
           if (!vis.length) continue;
-          const fresh = m.pulses.some((p) => p.ip === a.ip);
+          const fresh = m.pulses.some((p) => p.ip === a.ip) || a.ip === m.selected;
           dottedPath(vis, fresh ? COL.warn : COL.p2, fresh ? 0.95 : 0.5, 2);
           if (!m.reduced) {
             // yol boyunca ilerleyen paket ve kısa iz
@@ -172,8 +178,10 @@
       }
       // saldırgan işaretleri
       const labelled = [];
+      m.screen = [];
       for (const a of m.attackers) {
         const p = where(a); if (!p[2]) continue;
+        m.screen.push({ ip: a.ip, x: p[0], y: p[1] });
         const r = 1.6 + 3.2 * Math.sqrt(a.attempts / maxAtt);
         ctx.globalAlpha = 0.95; ctx.fillStyle = a.blocked ? COL.warn : COL.p0;
         ctx.fillRect(p[0] - r / 2, p[1] - r / 2, r, r);
@@ -183,6 +191,22 @@
         if (labelled.length < 6 && !labelled.some((q) => Math.abs(q[1][0] - p[0]) < 46 && Math.abs(q[1][1] - p[1]) < 13)) labelled.push([a, p]);
       }
       for (const [a, p] of labelled) label(a.cc + " " + a.attempts, p[0] + 9, p[1] - 1, a.blocked ? COL.warn : COL.p1);
+      // seçili kaynak: köşeli hedef çerçevesi
+      const sel = m.selected && m.attackers.find((x) => x.ip === m.selected);
+      if (sel) {
+        const p = where(sel);
+        if (p[2]) {
+          const g = 9 + (m.reduced ? 0 : Math.sin(now / 260) * 1.5), L = 4;
+          ctx.globalAlpha = 1; ctx.strokeStyle = COL.warn; ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+            const cx = Math.round(p[0] + sx * g) + 0.5, cy = Math.round(p[1] + sy * g) + 0.5;
+            ctx.moveTo(cx, cy - sy * L); ctx.lineTo(cx, cy); ctx.lineTo(cx - sx * L, cy);
+          }
+          ctx.stroke();
+          label(sel.ip, p[0] + g + 6, p[1] - g, COL.warn);
+        }
+      }
       // yeni bulgu: genişleyen halka
       m.pulses = m.pulses.filter((u) => now - u.t0 < 6000);
       for (const u of m.pulses) {
@@ -206,9 +230,32 @@
     }
 
     // 3B: sürükleyerek ve ok tuşlarıyla döndürme
-    canvas.addEventListener("pointerdown", (e) => { if (m.mode !== "3d") return; m.drag = { x: e.clientX, y: e.clientY, lon0: m.lon0, pitch: m.pitch }; canvas.setPointerCapture(e.pointerId); });
+    // tıklama (sürüklemesiz): en yakın saldırganı seçer
+    let down = null;
+    canvas.addEventListener("pointerdown", (e) => {
+      down = { x: e.clientX, y: e.clientY };
+      if (m.mode !== "3d") return;
+      m.spin = null;
+      m.drag = { x: e.clientX, y: e.clientY, lon0: m.lon0, pitch: m.pitch };
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointerup", (e) => {
+      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) { down = null; return; }
+      down = null;
+      const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      let best = null, bd = 14;
+      for (const q of m.screen) { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q.ip; } }
+      if (opt.onPick) opt.onPick(best);
+    });
     canvas.addEventListener("pointermove", (e) => {
-      if (!m.drag) return;
+      if (!m.drag) {
+        if (m.screen.length) {
+          const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+          const near = m.screen.some((q) => Math.hypot(q.x - x, q.y - y) < 14);
+          canvas.style.cursor = near ? "pointer" : m.mode === "3d" ? "grab" : "default";
+        }
+        return;
+      }
       const k = 180 / Math.max(1, globeR() * Math.PI);
       m.lon0 = m.drag.lon0 - (e.clientX - m.drag.x) * k;
       m.pitch = clamp(m.drag.pitch + (e.clientY - m.drag.y) * k * RAD, -60 * RAD, 60 * RAD);
@@ -244,8 +291,17 @@
         m.note = note || "";
       },
       pulse(ip, now) { if (!m.reduced) m.pulses.push({ ip, t0: now }); },
+      // seç / bırak; 3B'de küre seçilen kaynağa döner
+      select(ip, now) {
+        m.selected = ip || null;
+        const a = ip && m.attackers.find((x) => x.ip === ip);
+        if (a && m.mode === "3d") {
+          let d = ((a.lon - m.lon0 + 540) % 360) - 180;
+          if (m.reduced) m.lon0 = a.lon; else m.spin = { from: m.lon0, d, t0: now || performance.now() };
+        }
+      },
       // yeniden çizim gerekiyor mu: döner küre, hareketli paketler ya da halka
-      animating() { return !m.reduced && (m.mode === "3d" || (m.targets.length > 0 && m.attackers.length > 0) || m.pulses.length > 0); },
+      animating() { return !!m.spin || (!m.reduced && (m.mode === "3d" || !!m.selected || (m.targets.length > 0 && m.attackers.length > 0) || m.pulses.length > 0)); },
     };
   }
 

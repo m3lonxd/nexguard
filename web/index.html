@@ -21,6 +21,7 @@
     <span class="brand">NEXGUARD</span>
     <span class="m">SUNUCU <b id="m-servers">0</b></span>
     <span class="m">AJAN <b id="m-agents">0</b></span>
+    <button type="button" class="m m-btn" id="m-hp" aria-label="Honeypot ayarları">HONEYPOT <b id="m-hp-n">0 / 0</b></button>
     <span class="m grow" aria-hidden="true"></span>
     <span class="m">SON GÜNCELLEME <b id="m-updated">--:--:--</b></span>
     <span class="m"><span class="dot" id="m-dot" aria-hidden="true"></span><b id="m-link">BAĞLANIYOR</b></span>
@@ -116,8 +117,23 @@
   </section>
 </div>
 
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="d-title" hidden>
+  <div class="d-scan" aria-hidden="true"></div>
+  <header class="d-head">
+    <div class="d-top">
+      <span class="label dim" id="d-kind"></span>
+      <button type="button" class="d-close" id="d-close" aria-label="Detayı kapat">KAPAT <span aria-hidden="true">ESC</span></button>
+    </div>
+    <h2 id="d-title"></h2>
+    <p class="d-sub" id="d-sub"></p>
+    <div class="d-chips" id="d-chips"></div>
+  </header>
+  <div class="d-body" id="d-body"></div>
+</aside>
+
 <script src="/dunya.js"></script>
 <script src="/harita.js"></script>
+<script src="/detay.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
