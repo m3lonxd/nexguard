@@ -92,7 +92,7 @@
     for (i = 0; i < NX; i++) for (j = 0; j < NZ; j++) terrainPoint(X0 + (i + r()) / NX * (X1 - X0), Z0 + (j + r()) / NZ * (Z1 - Z0), 0, 0);
     for (k = 0, n = 0; n < 20000 && k < 800000; k++) {
       var cx = X0 + r() * (X1 - X0), cz = Z0 + r() * (Z1 - Z0), ch = H(cx, cz);
-      if (r() < Math.pow(ch / hmax, 3.2)) { terrainPoint(cx, cz, 0.12, 0); n++; }
+      if (r() < Math.pow(ch / hmax, 3.2)) { terrainPoint(cx, cz, 0, 0); n++; }
     }
     // histogramın kalanı: zemin ölçüm gürültüsünden yükselir
     for (; hp < HT.length; hp++) { var t2 = HT[hp]; add(t2[0] * 1.4, -0.05 - r() * 0.2, (r() - 0.5) * 1.5, t2[0], t2[1], t2[2], 0, t2[3], r(), r(), 0, 5); }
@@ -142,6 +142,7 @@
   var VS = "#version 300 es\nprecision highp float;\n" +
     "in vec3 aA; in vec3 aB; in vec2 aBri; in vec4 aM;\n" +
     "uniform mat4 uVP; uniform vec3 uCam; uniform float uFocus, uScale, uTime, uDrift, uScan, uLogm, uTerr, uPlane, uRise, uCol, uSc, uDim, uTuxDim;\n" +
+    "out float vR;\n" +
     "out float vB;\n" +
     "float hs(float x){ return fract(sin(x*127.1+311.7)*43758.5453); }\n" +
     "float sm(float a,float b,float x){ float t=clamp((x-a)/(b-a),0.,1.); return t*t*(3.-2.*t); }\n" +
@@ -152,7 +153,7 @@
     " float key=clamp((0.8-aA.z)/1.5,0.,1.);\n" +
     " if(ty>6.5){\n" +
     "  float e=sm(0.,1.,uLogm); P=mix(A,B,e); P.y+=sin(e*3.14159)*0.1*(r1-.3);\n" +
-    "  vis=step(ph,uScan); fl=1.+1.8*(1.-sm(0.,0.05,uScan-ph)); bri*=1.-sm(0.8,1.,uLogm);\n" +
+    "  vis=step(ph,uScan); fl=1.+0.6*(1.-sm(0.,0.05,uScan-ph)); bri*=1.-sm(0.8,1.,uLogm);\n" +
     " } else {\n" +
     "  if(ty<0.5){\n" +
     "   A.y*=1.-w*(1.-uRise)*0.62;\n" +
@@ -166,7 +167,7 @@
     "  float e1=sm(0.,1.,s*2.), e2=sm(0.,1.,s*2.-1.);\n" +
     "  P= s<0.5 ? mix(A,S,e1) : mix(S,B,e2);\n" +
     "  bri=mix(aBri.x,aBri.y,sm(0.35,0.95,s));\n" +
-    "  if(ty<1.5||(ty>3.5&&ty<4.5)){ float rv=uTerr*1.1; vis=sm(key,key+0.05,rv); fl=1.+1.2*(1.-sm(0.,0.06,rv-key))*vis; }\n" +
+    "  if(ty<1.5||(ty>3.5&&ty<4.5)){ float rv=uTerr*1.1; vis=sm(key,key+0.05,rv); fl=1.+0.4*(1.-sm(0.,0.06,rv-key))*vis; }\n" +
     "  else if(ty<2.5) vis=sm(0.,0.4,uCol);\n" +
     "  else if(ty<3.5){ float kx=(aA.x+1.25)/2.5; vis=sm(kx,kx+0.06,uPlane*1.08); }\n" +
     " }\n" +
@@ -177,13 +178,21 @@
     " vB=bri*vis*fl*fog*dm;\n" +
     " if(vB<0.004){ gl_Position=vec4(2.,2.,2.,1.); gl_PointSize=0.; return; }\n" +
     " gl_Position=uVP*vec4(P,1.);\n" +
-    " gl_PointSize=clamp((0.8+sz*1.7)*uScale/dist,1.,6.);\n" +
+    // ince noktalar: boyut 3.4 px ile sınırlı; 1 px altına düşen nokta parlaklığını alanına göre verir
+    " float ps=(0.7+sz*1.1)*uScale/dist; vR=clamp(ps,0.,1.);\n" +
+    " gl_PointSize=clamp(ps,1.,3.4);\n" +
     "}\n";
-  var FS = "#version 300 es\nprecision mediump float;\nin float vB; out vec4 o;\n" +
+  // uGain: HDR hedefte doğrusal enerji, yedek yolda doğrudan parlaklık
+  var FS = "#version 300 es\nprecision mediump float;\nin float vB; in float vR; uniform float uGain; out vec4 o;\n" +
     "void main(){ vec2 d=gl_PointCoord-.5; float r=length(d)*2.; if(r>1.) discard;\n" +
-    " float a=1.-smoothstep(0.4,1.,r); float e=pow(clamp(vB,0.,2.),0.9)*a*0.72;\n" +
-    " e+=max(vB-0.8,0.)*0.12*(1.-r)*(1.-r);\n" +
+    " float a=1.-smoothstep(0.55,1.,r); float e=pow(clamp(vB,0.,2.),0.9)*a*uGain*mix(0.5,1.,vR);\n" +
     " o=vec4(vec3(e),1.); }\n";
+  // tonemap: üst üste binen noktalar beyaza kesilmek yerine yumuşakça doygunlaşır
+  var TVS = "#version 300 es\nvoid main(){ vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2)); gl_Position=vec4(p*2.-1.,0.,1.); }\n";
+  var TFS = "#version 300 es\nprecision highp float;\nuniform sampler2D uT; uniform float uExp; out vec4 o;\n" +
+    "void main(){ vec3 x=texelFetch(uT,ivec2(gl_FragCoord.xy),0).rgb; vec3 v=1.-exp(-x*uExp);\n" +
+    " o=vec4(vec3(6./255.)+v*(1.-6./255.),1.); }\n";
+  var GAIN_HDR = 0.85, GAIN_LDR = 0.5, EXPO = 1.25;
 
   /* ---------- kamera ---------- */
   var KEY = [ // g, konum, hedef, fov(derece)
@@ -191,7 +200,7 @@
     [0.07, [0.15, 0.95, 3.1], [0.0, 0.24, 0.0], 34],
     [0.13, [0.0, 0.40, 3.15], [0.0, 0.34, 0.75], 34],
     [0.26, [0.0, 0.42, 2.15], [0.0, 0.20, 0.10], 36],
-    [0.34, [1.7, 0.55, 1.55], [0.0, 0.30, 0.0], 36],
+    [0.34, [0.85, 0.55, 1.95], [0.0, 0.30, 0.0], 36],
     [0.50, [0.45, 0.70, 1.95], [-0.15, 0.60, 0.03], 36],
     [0.60, [0.28, 0.72, 1.70], [-0.18, 0.66, 0.03], 34],
     [0.72, [0.22, 0.60, 1.95], [-0.18, 0.50, 0.03], 34],
@@ -212,7 +221,7 @@
     for (k = 0; k < 3; k++) { p[k] = mix(a[1][k], b[1][k], u); q[k] = mix(a[2][k], b[2][k], u); }
     var f = mix(a[3], b[3], u);
     if (c > 0) { var e = sm(0, 1, c); for (k = 0; k < 3; k++) { p[k] = mix(p[k], CLOSE.pos[k], e); q[k] = mix(q[k], CLOSE.tgt[k], e); } }
-    if (drift) { var yaw = 0.035 * Math.sin(t * 0.13), dx = p[0] - q[0], dz = p[2] - q[2]; p[0] = q[0] + dx * Math.cos(yaw) + dz * Math.sin(yaw); p[2] = q[2] - dx * Math.sin(yaw) + dz * Math.cos(yaw); }
+    if (drift) { var yaw = 0.02 * Math.sin(t * 0.09), dx = p[0] - q[0], dz = p[2] - q[2]; p[0] = q[0] + dx * Math.cos(yaw) + dz * Math.sin(yaw); p[2] = q[2] - dx * Math.sin(yaw) + dz * Math.cos(yaw); }
     return { pos: p, tgt: q, fov: f };
   }
   function lookAt(e, t) {
@@ -234,7 +243,7 @@
   /* ---------- çalışma zamanı ---------- */
   var lastT = 0, mo = 0, G = {}, gl, prog, vao, U = {}, cvs, cssW = 1, cssH = 1, dpr = 1, ready = false, raf = 0;
   var tgtG = 0, curG = 0, tgtC = 0, tgtDim = 1, azHareket = false, lastVP = null, fps = 0, fpsN = 0, fpsT = 0, onReady = null, running = false;
-  var ov = {}, scr = {};
+  var ov = {}, scr = {}, hdr = null;
 
   function scramble(el, text, key, t0, now) {
     if (!el) return;
@@ -270,7 +279,7 @@
     if (ov.kilit) {
       c = sm(0.555, 0.585, g) * (1 - sm(0.74, 0.78, g));
       if (cp && c > 0) {
-        var k = 1 + 1.6 * (1 - sm(0.555, 0.62, g)); ov.kilit.style.setProperty("--k", k.toFixed(3));
+        var k = 1 + 0.5 * (1 - sm(0.555, 0.62, g)); ov.kilit.style.setProperty("--k", k.toFixed(3));
         place(ov.kilit, cp, 0, 0); vis(ov.kilit, c);
         if (ov.yaz) { if (g > 0.6) { if (!scr.kilit) scr.kilit = now; scramble(ov.yaz, "nftables · TTL 1 sa", "k", scr.kilit, now); } else { scr.kilit = 0; ov.yaz.textContent = ""; } }
       } else { vis(ov.kilit, 0); scr.kilit = 0; }
@@ -295,8 +304,12 @@
     lastVP = VP;
     var f = Math.hypot(cam.pos[0] - cam.tgt[0], cam.pos[1] - cam.tgt[1], cam.pos[2] - cam.tgt[2]);
     gl.viewport(0, 0, cvs.width, cvs.height);
-    gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    if (hdr) { gl.bindFramebuffer(gl.FRAMEBUFFER, hdr.fb); gl.clearColor(0, 0, 0, 0); }
+    else gl.clearColor(6 / 255, 6 / 255, 6 / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
     gl.useProgram(prog); gl.bindVertexArray(vao);
+    gl.uniform1f(U.uGain, hdr ? GAIN_HDR : GAIN_LDR);
     gl.uniformMatrix4fv(U.uVP, false, new Float32Array(VP));
     gl.uniform3f(U.uCam, cam.pos[0], cam.pos[1], cam.pos[2]);
     gl.uniform1f(U.uFocus, f);
@@ -307,6 +320,13 @@
     var dim = tgtDim * (1 - 0.65 * c);
     gl.uniform1f(U.uDim, dim); gl.uniform1f(U.uTuxDim, mix(dim, 1, c * c));
     gl.drawArrays(gl.POINTS, 0, N);
+    if (hdr) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.disable(gl.BLEND);
+      gl.useProgram(hdr.prog); gl.bindVertexArray(hdr.vao);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hdr.tex);
+      gl.uniform1i(hdr.uT, 0); gl.uniform1f(hdr.uExp, EXPO);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
     overlays(g, st, now);
   }
 
@@ -315,7 +335,7 @@
     if (document.hidden || !ready) return;
     var now = ts / 1000;
     var dt = Math.min(0.25, now - lastT); lastT = now;
-    if (azHareket) curG = tgtG; else { var d = tgtG - curG; curG = Math.abs(d) < 0.0004 ? tgtG : curG + d * (1 - Math.exp(-dt * 9)); }
+    if (azHareket) curG = tgtG; else { var d = tgtG - curG; curG = Math.abs(d) < 0.0004 ? tgtG : curG + d * (1 - Math.exp(-dt * 4)); }
     G.g = curG;
     draw(now);
     fpsN++; if (now - fpsT >= 1) { fps = fpsN / (now - fpsT); fpsN = 0; fpsT = now; G.fps = fps; }
@@ -325,7 +345,30 @@
     var r = cvs.getBoundingClientRect(); cssW = Math.max(2, r.width); cssH = Math.max(2, r.height);
     dpr = Math.min(2, window.devicePixelRatio || 1);
     cvs.width = Math.round(cssW * dpr); cvs.height = Math.round(cssH * dpr);
+    if (hdr) sizeHdr();
     if (ready) draw(performance.now() / 1000);
+  }
+
+  /* ---------- HDR hedefi (EXT_color_buffer_float yoksa doğrudan çizime düşer) ---------- */
+  function makeHdr() {
+    if (!gl.getExtension("EXT_color_buffer_float")) return null;
+    try {
+      var p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, TVS)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, TFS)); gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) return null;
+      var t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return { prog: p, tex: t, fb: gl.createFramebuffer(), vao: gl.createVertexArray(), uT: gl.getUniformLocation(p, "uT"), uExp: gl.getUniformLocation(p, "uExp") };
+    } catch (e) { return null; }
+  }
+  function sizeHdr() {
+    gl.bindTexture(gl.TEXTURE_2D, hdr.tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, cvs.width, cvs.height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, hdr.fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, hdr.tex, 0);
+    var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!ok) hdr = null;
   }
 
   function compile(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
@@ -363,8 +406,9 @@
       prog = gl.createProgram(); gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
     } catch (e) { if (window.console) console.error(e); return false; }
-    ["uVP", "uCam", "uFocus", "uScale", "uTime", "uDrift", "uScan", "uLogm", "uTerr", "uPlane", "uRise", "uCol", "uSc", "uDim", "uTuxDim"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+    ["uVP", "uCam", "uFocus", "uScale", "uTime", "uDrift", "uScan", "uLogm", "uTerr", "uPlane", "uRise", "uCol", "uSc", "uDim", "uTuxDim", "uGain"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.disable(gl.DEPTH_TEST);
+    hdr = opts.hdr === false ? null : makeHdr(); G.hdr = !!hdr;
     cvs.addEventListener("webglcontextlost", function (e) { e.preventDefault(); ready = false; if (opts.kayip) opts.kayip(); });
     ov.root = opts.hud; if (ov.root) { ov.esik = ov.root.querySelector("[data-o=esik]"); ov.cagri = ov.root.querySelector("[data-o=cagri]"); ov.kilit = ov.root.querySelector("[data-o=kilit]"); ov.yaz = ov.root.querySelector("[data-o=yaz]"); ov.hist = ov.root.querySelector("[data-o=hist]"); }
     resize(); window.addEventListener("resize", resize);
