@@ -3,80 +3,115 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>NexGuard Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/style.css">
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
 </head>
 <body>
-<header class="topbar">
-  <h1>NexGuard</h1>
-  <p class="subtitle">Sunucu güvenlik izleme paneli</p>
-</header>
+<a class="skip" href="#terrain-panel">Ana içeriğe geç</a>
 
-<main x-data="dashboard()" x-init="init()">
-  <p class="error" x-show="error" x-text="error"></p>
+<div class="frame">
+  <i class="tick tl" aria-hidden="true"></i><i class="tick tr" aria-hidden="true"></i>
+  <i class="tick bl" aria-hidden="true"></i><i class="tick br" aria-hidden="true"></i>
 
-  <section>
-    <h2>Sunucular</h2>
-    <table>
-      <thead>
-        <tr><th>Hostname</th><th>İşletim Sistemi</th><th>Kayıt Tarihi</th></tr>
-      </thead>
-      <tbody>
-        <template x-for="s in servers" :key="s.id">
-          <tr>
-            <td x-text="s.hostname"></td>
-            <td x-text="s.os"></td>
-            <td x-text="fmtTime(s.enrolled_at)"></td>
-          </tr>
-        </template>
-        <tr x-show="servers.length === 0"><td colspan="3">Henüz kayıtlı sunucu yok.</td></tr>
-      </tbody>
-    </table>
+  <header class="meta" aria-label="Panel durumu">
+    <span class="brand">NEXGUARD</span>
+    <span class="m">SUNUCU <b id="m-servers">0</b></span>
+    <span class="m">AJAN <b id="m-agents">0</b></span>
+    <span class="m grow" aria-hidden="true"></span>
+    <span class="m">SON GÜNCELLEME <b id="m-updated">--:--:--</b></span>
+    <span class="m"><span class="dot" id="m-dot" aria-hidden="true"></span><b id="m-link">BAĞLANIYOR</b></span>
+  </header>
+
+  <p class="error" id="err" role="alert" hidden></p>
+
+  <section class="panel terrain" id="terrain-panel" aria-labelledby="t-title">
+    <div class="phead">
+      <h2 class="label" id="t-title">SALDIRI ARAZİSİ <span class="dim">/ SON 60 DK</span></h2>
+      <span class="label dim axes">X ZAMAN · Z KAYNAK IP · Y DENEME</span>
+    </div>
+    <div class="kpis">
+      <div class="kpi">
+        <span class="big" id="k-total">0</span><span class="unit">deneme</span>
+        <span class="label dim">SON 60 DK</span>
+      </div>
+      <div class="kpi">
+        <span class="big" id="k-ips">0</span><span class="unit">ip</span>
+        <span class="label dim">KAYNAK</span>
+      </div>
+      <div class="kpi warn">
+        <span class="big" id="k-blocked">0</span><span class="unit">ip</span>
+        <span class="label dim">ENGELLİ</span>
+      </div>
+    </div>
+    <div class="stage" id="terrain-stage" tabindex="0" role="group" aria-label="Saldırı arazisi grafiği; ayrıntılar aşağıdaki tabloda" aria-describedby="sr-terrain">
+      <canvas id="terrain" role="img" aria-label="Son 60 dakikadaki saldırı denemeleri"></canvas>
+    </div>
+    <div class="sr-only"><table id="sr-terrain">
+      <caption>Son 60 dakikada en çok deneme yapan kaynak IP'ler</caption>
+      <thead><tr><th>IP</th><th>Deneme</th><th>En yoğun an</th><th>Durum</th></tr></thead>
+      <tbody id="sr-terrain-body"></tbody>
+    </table></div>
+    <p class="sr-only" id="live" aria-live="polite"></p>
   </section>
 
-  <section>
-    <h2>Bulgular</h2>
-    <table>
-      <thead>
-        <tr><th>Sunucu</th><th>Tip</th><th>Önem</th><th>Özet</th><th>Zaman</th></tr>
-      </thead>
-      <tbody>
-        <template x-for="f in findings" :key="f.id">
-          <tr>
-            <td x-text="hostnameFor(f.server_id)"></td>
-            <td x-text="f.type"></td>
-            <td><span class="badge" :class="'severity-' + f.severity" x-text="f.severity"></span></td>
-            <td x-text="f.summary"></td>
-            <td x-text="fmtTime(f.created_at)"></td>
-          </tr>
-        </template>
-        <tr x-show="findings.length === 0"><td colspan="5">Henüz bulgu yok.</td></tr>
-      </tbody>
+  <section class="panel side findings" aria-labelledby="f-title">
+    <div class="phead">
+      <h2 class="label" id="f-title">BULGULAR</h2>
+      <span class="label dim" id="f-count">0</span>
+    </div>
+    <table class="readout" id="f-table">
+      <colgroup><col class="c-idx"><col class="c-ip"><col class="c-n"><col class="c-u"><col class="c-t"></colgroup>
+      <thead><tr><th scope="col" class="c-idx">#</th><th scope="col">IP / SUNUCU</th><th scope="col" class="num">DENEME</th><th scope="col">KULLANICI</th><th scope="col" class="num">ZAMAN</th></tr></thead>
+      <tbody id="f-body"></tbody>
     </table>
+    <p class="empty" id="f-empty">Henüz bulgu yok.</p>
   </section>
 
-  <section>
-    <h2>Uygulanan Aksiyonlar</h2>
-    <table>
-      <thead>
-        <tr><th>Seviye</th><th>Aksiyon</th><th>Parametreler</th><th>Uygulandı</th><th>Geri Alındı</th></tr>
-      </thead>
-      <tbody>
-        <template x-for="a in actions" :key="a.id">
-          <tr>
-            <td x-text="a.tier"></td>
-            <td x-text="a.action_type"></td>
-            <td x-text="JSON.stringify(a.params)"></td>
-            <td x-text="fmtTime(a.applied_at)"></td>
-            <td x-text="a.reverted_at ? fmtTime(a.reverted_at) : '—'"></td>
-          </tr>
-        </template>
-        <tr x-show="actions.length === 0"><td colspan="5">Henüz aksiyon yok.</td></tr>
-      </tbody>
+  <section class="panel side actions" aria-labelledby="a-title">
+    <div class="phead">
+      <h2 class="label" id="a-title">UYGULANAN AKSİYONLAR</h2>
+      <span class="label dim" id="a-count">0</span>
+    </div>
+    <table class="readout" id="a-table">
+      <colgroup><col class="c-rule"><col class="c-ttl"><col class="c-st"></colgroup>
+      <thead><tr><th scope="col">NFT KURALI / PARAMETRE</th><th scope="col" class="num">TTL</th><th scope="col" class="num">DURUM</th></tr></thead>
+      <tbody id="a-body"></tbody>
     </table>
+    <p class="empty" id="a-empty">Henüz aksiyon yok.</p>
   </section>
-</main>
+
+  <section class="panel hist" aria-labelledby="h-title">
+    <div class="phead">
+      <h2 class="label" id="h-title">SAATLİK DENEME <span class="dim">/ SON 24 SAAT</span></h2>
+      <span class="label dim" id="h-total">0 DENEME</span>
+    </div>
+    <div class="hstage" id="hist-stage" tabindex="0" role="group" aria-label="Saatlik deneme histogramı; ayrıntılar aşağıdaki tabloda" aria-describedby="sr-hist">
+      <canvas id="hist" role="img" aria-label="Son 24 saatte saatlik deneme sayıları"></canvas>
+    </div>
+    <div class="sr-only"><table id="sr-hist">
+      <caption>Son 24 saatte saatlik deneme sayıları</caption>
+      <thead><tr><th>Saat</th><th>Deneme</th></tr></thead>
+      <tbody id="sr-hist-body"></tbody>
+    </table></div>
+  </section>
+
+  <section class="panel side servers" aria-labelledby="s-title">
+    <div class="phead">
+      <h2 class="label" id="s-title">SUNUCULAR</h2>
+      <span class="label dim" id="s-count">0</span>
+    </div>
+    <table class="readout" id="s-table">
+      <colgroup><col class="c-host"><col class="c-os"><col class="c-en"></colgroup>
+      <thead><tr><th scope="col">HOSTNAME</th><th scope="col">İŞLETİM SİSTEMİ</th><th scope="col" class="num">KAYIT</th></tr></thead>
+      <tbody id="s-body"></tbody>
+    </table>
+    <p class="empty" id="s-empty">Henüz kayıtlı sunucu yok.</p>
+  </section>
+</div>
 
 <script src="/app.js"></script>
 </body>
