@@ -1,15 +1,15 @@
-/* NexGuard tanıtım sitesi. Sıcak füme zemin, fildişi metin, tek vurgu: kehribar. */
+/* NexGuard tanıtım sitesi. Nokta bulutu temasıyla aynı palet: #060606 cam zemin, gri tonlu metin, tek vurgu: kehribar. */
 :root {
-  --zemin: #14120f;
-  --koyu: #0f0d0b;
-  --metin: #ece6d8;
-  --ikincil: #b8b0a0;
-  --soluk: #a69c8a;
-  --cizgi: rgba(236, 230, 216, 0.16);
-  --kehribar: #d99a2b;
-  --yesil: #8fa876;
+  --zemin: #060606;
+  --koyu: #0a0a0a;
+  --metin: #e8e8e8;
+  --ikincil: #9d9d9f;
+  --soluk: #8c8c8f;
+  --cizgi: #3f3f40;
+  --kehribar: #e0a43a;
+  --yesil: #bebfc1;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 56px; -webkit-text-size-adjust: 100%; }
@@ -18,17 +18,13 @@ body {
   font: 400 16px/1.65 var(--sans);
   color: var(--metin);
   background-color: var(--zemin);
-  /* 1U yuvalarını çağrıştıran soluk yatay çizgiler; üstte ~0.72 opak füme katman. */
-  background-image:
-    linear-gradient(rgba(20, 18, 15, 0.72), rgba(20, 18, 15, 0.72)),
-    repeating-linear-gradient(to bottom, transparent 0 43px, rgba(236, 230, 216, 0.16) 43px 44px);
   overflow-x: hidden;
 }
 img, video { display: block; max-width: 100%; }
 a { color: inherit; }
 code, pre { font-family: var(--mono); }
 code { font-size: 0.88em; }
-p code, li code { color: var(--metin); background: rgba(236, 230, 216, 0.08); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+p code, li code { color: var(--metin); background: rgba(232, 232, 232, 0.08); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
 :focus-visible { outline: 2px solid var(--kehribar); outline-offset: 2px; }
 
 .kap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
@@ -36,7 +32,7 @@ p code, li code { color: var(--metin); background: rgba(236, 230, 216, 0.08); pa
 .atla:focus { left: 8px; top: 8px; }
 
 /* Üst çubuk */
-.ust { position: sticky; top: 0; z-index: 10; background: rgba(20, 18, 15, 0.92); border-bottom: 1px solid var(--cizgi); }
+.ust { position: sticky; top: 0; z-index: 10; background: rgba(6, 6, 6, 0.92); border-bottom: 1px solid var(--cizgi); }
 .ust-ic { display: flex; align-items: center; justify-content: space-between; height: 48px; }
 .marka { font: 500 15px var(--mono); text-decoration: none; display: inline-flex; align-items: center; gap: 9px; }
 .led { width: 8px; height: 8px; background: var(--kehribar); display: inline-block; }
@@ -53,21 +49,30 @@ p code, li code { color: var(--metin); background: rgba(236, 230, 216, 0.08); pa
 }
 .btn:hover { border-color: var(--ikincil); }
 .btn.pri { background: var(--kehribar); border-color: var(--kehribar); color: var(--zemin); }
-.btn.pri:hover { background: #e5a93d; border-color: #e5a93d; }
+.btn.pri:hover { background: #ecb450; border-color: #ecb450; }
 
-/* Arka plan medya (hero ve kapanış) */
-.hero, .son { position: relative; overflow: hidden; background: var(--koyu); isolation: isolate; }
+/* Arka plan medya (hero ve kapanış): nokta bulutu, sol taraf sakin ve koyu */
+.hero, .son { position: relative; overflow: hidden; background: var(--zemin); isolation: isolate; }
 .arka { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
-.hero-kat { position: absolute; inset: 0; z-index: -1; background: linear-gradient(rgba(15, 13, 11, 0.8), rgba(15, 13, 11, 0.88)); }
-.hero .arka { object-position: 50% 12%; }
+.hero-kat { position: absolute; inset: 0; z-index: -1; background: linear-gradient(rgba(6, 6, 6, 0.7), rgba(6, 6, 6, 0.8)); }
+.hero .arka { object-position: 50% 0%; }
+.son .arka { object-position: 50% 42%; }
+.son .hero-kat { background:
+    linear-gradient(90deg, rgba(6, 6, 6, 0.92) 0%, rgba(6, 6, 6, 0.7) 40%, rgba(6, 6, 6, 0.1) 70%, rgba(6, 6, 6, 0.3) 100%),
+    linear-gradient(180deg, rgba(6, 6, 6, 0.55) 0%, rgba(6, 6, 6, 0) 25%, rgba(6, 6, 6, 0) 75%, rgba(6, 6, 6, 0.6) 100%); }
 
-/* Geniş ekranda sunucunun üstündeki Tux görünsün: üst kısım açık, akış kartı aşağıda. */
+/* Geniş ekran: görsel üstte 16:9 olarak tam genişlikte; metin solda (görselin koyu %40'ı),
+   Tux ve arazi sağ üstte, akış kartı Tux'un altından başlar. Görselin altı zemine erir. */
 @media (min-width: 900px) {
+  .hero .arka { inset: 0 0 auto 0; height: auto; aspect-ratio: 16 / 9; }
   .hero .hero-kat { background:
-      linear-gradient(90deg, rgba(15, 13, 11, 0.9) 0%, rgba(15, 13, 11, 0.72) 38%, rgba(15, 13, 11, 0.25) 62%, rgba(15, 13, 11, 0.45) 100%),
-      linear-gradient(180deg, rgba(15, 13, 11, 0) 0%, rgba(15, 13, 11, 0.35) 45%, rgba(15, 13, 11, 0.9) 100%); }
-  .hero .hero-ic { min-height: min(720px, calc(100svh - 48px)); align-items: end; }
-  .hero .dokum { margin-top: clamp(220px, 30vh, 320px); }
+      linear-gradient(90deg, rgba(6, 6, 6, 0.88) 0%, rgba(6, 6, 6, 0.5) 34%, rgba(6, 6, 6, 0) 52%),
+      linear-gradient(180deg, rgba(6, 6, 6, 0) 40vw, var(--zemin) 56vw); }
+  .hero .hero-ic { align-items: start; min-height: 0; }
+  .hero .hero-metin { margin-top: 5vw; }
+  .hero .dokum { margin-top: calc(36vw - 36px); }
+  .son { min-height: clamp(420px, 36vw, 600px); display: flex; align-items: center; }
+  .son .son-ic { width: 100%; }
 }
 
 /* Hero */
@@ -76,7 +81,7 @@ p code, li code { color: var(--metin); background: rgba(236, 230, 216, 0.08); pa
 h1 { margin: 0; font: 600 clamp(1.65rem, 2.9vw, 2.6rem)/1.2 var(--sans); letter-spacing: -0.01em; max-width: 20ch; }
 .lead { margin: 16px 0 0; color: var(--ikincil); max-width: 52ch; }
 
-.dokum { margin: 0; min-width: 0; background: var(--koyu); border: 1px solid var(--cizgi); border-radius: 4px; }
+.dokum { margin: 0; min-width: 0; background: rgba(6, 6, 6, 0.84); border: 1px solid var(--cizgi); border-radius: 4px; }
 .dokum figcaption { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--cizgi); font: 400 12px var(--mono); color: var(--soluk); }
 .dokum figcaption span:first-child { color: var(--ikincil); }
 .dokum pre { margin: 0; padding: 14px; overflow-x: auto; font-size: 11.5px; line-height: 1.6; color: var(--metin); tab-size: 2; }
@@ -137,6 +142,16 @@ h3 { margin: 0 0 6px; font: 600 1rem/1.3 var(--sans); }
   .zincir { grid-template-columns: 1fr 1fr; }
   .sinir-izgara { grid-template-columns: 1fr; gap: 24px; }
   .kod-izgara { grid-template-columns: 1fr; }
+}
+/* Dar ekran: görsel üstte sabit yükseklikte (Tux ortada), metin ve kart altında. */
+@media (max-width: 899px) {
+  .hero .arka { inset: auto; top: -90px; left: 50%; width: 996px; max-width: none; height: 560px; transform: translateX(-60%); object-fit: cover; }
+  .hero .hero-kat { background: linear-gradient(180deg, rgba(6, 6, 6, 0) 0, rgba(6, 6, 6, 0) 240px, var(--zemin) 450px); }
+  .hero .hero-ic { padding-top: 290px; }
+  .son { min-height: 560px; display: flex; align-items: flex-end; }
+  .son .son-ic { width: 100%; padding-top: 16px; padding-bottom: 36px; }
+  .son .arka { object-position: 77% 50%; }
+  .son .hero-kat { background: linear-gradient(180deg, rgba(6, 6, 6, 0.1) 0, rgba(6, 6, 6, 0) 40%, rgba(6, 6, 6, 0.94) 72%); }
 }
 @media (max-width: 560px) {
   .kap { padding: 0 16px; }
