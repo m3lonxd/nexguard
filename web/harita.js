@@ -20,7 +20,12 @@
       attackers: [], targets: [], note: "",
       pulses: [], drag: null, lastT: 0, idleSince: 0, reduced: false,
       screen: [], selected: null, spin: null, // son karede çizilen işaretlerin ekran konumu (tıklama için)
+      style: "nokta", color: false,              // taban: nokta | sinir | uydu (sinir/uydu WebGL)
+      zoom3: 1, zoom2: 1, c2: { lon: 0, lat: (LAT_N + LAT_S) / 2 }, pan: null, layerDirty: true,
     };
+    const ZMAX = 8;
+    // WebGL taban katmanı (sınır ve uydu stilleri); yoksa yalnız nokta stili kullanılır
+    const gl = opt.glCanvas && window.NexGlobe ? window.NexGlobe.create(opt.glCanvas, { onChange: () => opt.onChange() }) : null;
     const layer = document.createElement("canvas");
     const lctx = layer.getContext("2d");
 
@@ -32,15 +37,49 @@
       gCl[i] = Math.cos(gLat[i]); gSl[i] = Math.sin(gLat[i]);
     }
 
+    // 2B görünüm: tam sığan ölçek x yakınlaştırma, merkez c2 (boylam, enlem)
+    function baseK() {
+      const pad = 10;
+      return Math.min((m.W - pad * 2) / 360, (m.H - pad * 2) / (LAT_N - LAT_S));
+    }
     function fit2d() {
-      const pad = 10, w = m.W - pad * 2, h = m.H - pad * 2;
-      const span = LAT_N - LAT_S, k = Math.min(w / 360, h / span);
-      return { k, ox: (m.W - 360 * k) / 2, oy: (m.H - span * k) / 2 };
+      const k = baseK() * m.zoom2;
+      return { k, ox: m.W / 2 - (m.c2.lon + 180) * k, oy: m.H / 2 - (LAT_N - m.c2.lat) * k };
+    }
+    function clampC2() {
+      const k = baseK() * m.zoom2, hw = m.W / 2 / k, hh = m.H / 2 / k;
+      m.c2.lon = hw >= 180 ? 0 : clamp(m.c2.lon, -180 + hw, 180 - hw);
+      m.c2.lat = hh >= (LAT_N - LAT_S) / 2 ? (LAT_N + LAT_S) / 2 : clamp(m.c2.lat, LAT_S + hh, LAT_N - hh);
+      m.layerDirty = true;
+    }
+    function zoomAt(f, x, y) {
+      if (m.mode === "3d") { m.zoom3 = clamp(m.zoom3 * f, 1, ZMAX); opt.onChange(); return; }
+      const a = fit2d();
+      if (x == null) { x = m.W / 2; y = m.H / 2; }
+      const lon = (x - a.ox) / a.k - 180, lat = LAT_N - (y - a.oy) / a.k;
+      m.zoom2 = clamp(m.zoom2 * f, 1, ZMAX);
+      const k = baseK() * m.zoom2;
+      // imlecin altındaki nokta yerinde kalır
+      m.c2.lon = (m.W / 2 - (x - (lon + 180) * k)) / k - 180;
+      m.c2.lat = LAT_N - (m.H / 2 - (y - (LAT_N - lat) * k)) / k;
+      clampC2();
+      touchMode();
+      opt.onChange();
+    }
+    // dokunmatik: 3B'de yatay sürükleme döndürür; 2B yakınken sürükleme haritayı kaydırır
+    function touchMode() {
+      canvas.style.touchAction = m.mode === "3d" ? "pan-y" : m.zoom2 > 1.001 ? "none" : "auto";
+    }
+    function resetView() {
+      m.zoom2 = 1; m.zoom3 = 1; m.c2 = { lon: 0, lat: (LAT_N + LAT_S) / 2 };
+      m.layerDirty = true;
+      touchMode();
+      opt.onChange();
     }
     function p2d(f, lat, lon) { return [f.ox + (lon + 180) * f.k, f.oy + (LAT_N - lat) * f.k]; }
 
     // küre KPI bloğunun altına girmesin diye biraz aşağıda ve sağda durur
-    function globeR() { return Math.min(m.W * 0.46, m.H * 0.43); }
+    function globeR() { return Math.min(m.W * 0.46, m.H * 0.43) * m.zoom3; }
     function gcx() { return m.W * 0.54; }
     function gcy() { return m.H * 0.55; }
     // birim küre noktası -> ekran; z>0 görünür yüz
@@ -58,16 +97,18 @@
       if (W === m.W && H === m.H && dpr === m.dpr) return false;
       m.W = W; m.H = H; m.dpr = dpr;
       canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
-      buildLayer();
+      if (gl) gl.resize(W, H, dpr);
+      clampC2();
       return true;
     }
 
     // 2B statik katman: kara ızgarası + ince çerçeve çizgileri
     function buildLayer() {
+      m.layerDirty = false;
       layer.width = canvas.width; layer.height = canvas.height;
       lctx.setTransform(m.dpr, 0, 0, m.dpr, 0, 0);
       lctx.clearRect(0, 0, m.W, m.H);
-      const f = fit2d(), cell = G.flatStep * f.k, s = Math.max(1, Math.min(2.2, cell * 0.42));
+      const f = fit2d(), cell = G.flatStep * f.k, s = Math.max(1, Math.min(2.2 * Math.sqrt(m.zoom2), cell * 0.42));
       lctx.fillStyle = COL.p4;
       for (let i = 0; i < G.flat.length; i += 2) {
         const p = p2d(f, G.flat[i] / 10, G.flat[i + 1] / 10);
@@ -114,7 +155,7 @@
       // kenar halkası
       ctx.fillStyle = COL.p5; ctx.globalAlpha = 0.9;
       for (let a = 0; a < 360; a += 1.5) ctx.fillRect(cx + Math.cos(a * RAD) * R - 0.5, cy + Math.sin(a * RAD) * R - 0.5, 1, 1);
-      const cp = Math.cos(m.pitch), sp = Math.sin(m.pitch), l0 = m.lon0 * RAD, s = Math.max(1, Math.min(1.9, R / 150));
+      const cp = Math.cos(m.pitch), sp = Math.sin(m.pitch), l0 = m.lon0 * RAD, s = Math.max(1, Math.min(1.9 * Math.sqrt(m.zoom3), R / 150));
       ctx.fillStyle = COL.p2;
       for (let i = 0; i < gn; i++) {
         const dl = gLon[i] - l0, x0 = gCl[i] * Math.sin(dl), z0 = gCl[i] * Math.cos(dl), y0 = gSl[i];
@@ -135,6 +176,11 @@
       ctx.globalAlpha = 1;
       ctx.font = "10px " + MONO; ctx.fillStyle = color; ctx.textAlign = align || "left"; ctx.textBaseline = "middle";
       if ("letterSpacing" in ctx) ctx.letterSpacing = "0.4px";
+      if (m.style !== "nokta") {
+        // görüntü tabanında okunurluk için koyu hale
+        ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(6,6,6,0.85)";
+        ctx.strokeText(text, Math.round(x), Math.round(y));
+      }
       ctx.fillText(text, Math.round(x), Math.round(y));
     }
 
@@ -149,10 +195,18 @@
       } else if (m.mode === "3d" && !m.drag && !m.reduced && !m.selected) m.lon0 = (m.lon0 + dt * 3) % 360;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = COL.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      if (m.mode === "2d") ctx.drawImage(layer, 0, 0);
+      const useGL = gl && m.style !== "nokta";
+      if (useGL) {
+        // taban WebGL'de; bu katman saydam kalır, yalnızca işaretler çizilir
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const f = fit2d();
+        gl.draw({ mode: m.mode, style: m.style, color: m.color, W: m.W, H: m.H, dpr: m.dpr, cx: gcx(), cy: gcy(), R: globeR(), lon0: m.lon0, pitch: m.pitch, k: f.k, ox: f.ox, oy: f.oy });
+      } else {
+        ctx.fillStyle = COL.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (m.mode === "2d") { if (m.layerDirty) buildLayer(); ctx.drawImage(layer, 0, 0); }
+      }
       ctx.setTransform(m.dpr, 0, 0, m.dpr, 0, 0);
-      if (m.mode === "3d") drawGlobe();
+      if (m.mode === "3d" && !useGL) drawGlobe();
 
       const tgt = m.targets[0] || null;
       const maxAtt = m.attackers.reduce((a, b) => Math.max(a, b.attempts), 1);
@@ -224,7 +278,12 @@
         ctx.fillStyle = COL.p0; ctx.fillRect(Math.round(p[0]) - 0.5, Math.round(p[1]) - 0.5, 1, 1);
         label(t.name, p[0] - 9, p[1] + 1, COL.txt, "right");
       }
-      if (m.note) label(m.note, 12, m.H - 12, COL.p3);
+      let note = m.note;
+      if (m.style === "uydu" && gl && gl.satellite === "loading") note = "UYDU GÖRÜNTÜSÜ YÜKLENİYOR…";
+      else if (m.style === "uydu" && gl && gl.satellite === "error") note = "UYDU GÖRÜNTÜSÜ YÜKLENEMEDİ";
+      if (note) label(note, 12, m.H - 12, COL.p3);
+      const z = m.mode === "3d" ? m.zoom3 : m.zoom2;
+      if (z > 1.01) label(z.toFixed(1) + "×", m.W - 12, m.H - 12, COL.p3, "right");
       if (!m.attackers.length && !m.note) label("SON 24 SAATTE KONUMLANAN SALDIRI YOK", m.W / 2, m.H / 2, COL.p3, "center");
       ctx.globalAlpha = 1;
     }
@@ -234,7 +293,10 @@
     let down = null;
     canvas.addEventListener("pointerdown", (e) => {
       down = { x: e.clientX, y: e.clientY };
-      if (m.mode !== "3d") return;
+      if (m.mode === "2d") {
+        if (m.zoom2 > 1.001) { m.pan = { x: e.clientX, y: e.clientY, lon: m.c2.lon, lat: m.c2.lat }; canvas.setPointerCapture(e.pointerId); }
+        return;
+      }
       m.spin = null;
       m.drag = { x: e.clientX, y: e.clientY, lon0: m.lon0, pitch: m.pitch };
       canvas.setPointerCapture(e.pointerId);
@@ -248,11 +310,19 @@
       if (opt.onPick) opt.onPick(best);
     });
     canvas.addEventListener("pointermove", (e) => {
+      if (m.pan) {
+        const k = baseK() * m.zoom2;
+        m.c2.lon = m.pan.lon - (e.clientX - m.pan.x) / k;
+        m.c2.lat = m.pan.lat + (e.clientY - m.pan.y) / k;
+        clampC2();
+        opt.onChange();
+        return;
+      }
       if (!m.drag) {
         if (m.screen.length) {
           const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
           const near = m.screen.some((q) => Math.hypot(q.x - x, q.y - y) < 14);
-          canvas.style.cursor = near ? "pointer" : m.mode === "3d" ? "grab" : "default";
+          canvas.style.cursor = near ? "pointer" : m.mode === "3d" || m.zoom2 > 1.001 ? "grab" : "default";
         }
         return;
       }
@@ -261,9 +331,20 @@
       m.pitch = clamp(m.drag.pitch + (e.clientY - m.drag.y) * k * RAD, -60 * RAD, 60 * RAD);
       opt.onChange();
     });
-    const end = () => { m.drag = null; };
+    const end = () => { m.drag = null; m.pan = null; };
     canvas.addEventListener("pointerup", end); canvas.addEventListener("pointercancel", end);
+    // tekerlek: imlecin olduğu yere yakınlaştır (sayfa kaydırması harita üstündeyken durur)
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const r = canvas.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * unit * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+    canvas.addEventListener("dblclick", (e) => { e.preventDefault(); resetView(); });
     stage.addEventListener("keydown", (e) => {
+      if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomAt(1.25); return; }
+      if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomAt(0.8); return; }
+      if (e.key === "0") { e.preventDefault(); resetView(); return; }
       if (m.mode !== "3d") return;
       const d = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -6], ArrowDown: [0, 6] }[e.key];
       if (!d) return;
@@ -273,11 +354,22 @@
     return {
       resize,
       draw,
+      zoomBy(f) { zoomAt(f); },
+      resetView,
+      get zoom() { return m.mode === "3d" ? m.zoom3 : m.zoom2; },
+      get glOK() { return !!gl; },
+      setStyle(style, color) {
+        m.style = gl && (style === "sinir" || style === "uydu") ? style : "nokta";
+        m.color = !!color;
+        if (m.style === "uydu") gl.loadSatellite();
+        if (opt.glCanvas) opt.glCanvas.hidden = m.style === "nokta";
+        m.layerDirty = true;
+      },
+      get style() { return m.style; },
       setMode(mode) {
         m.mode = mode === "3d" ? "3d" : "2d";
         canvas.style.cursor = m.mode === "3d" ? "grab" : "default";
-        // 3B'de dokunarak döndürülür; 2B'de sayfa kaydırması engellenmez
-        canvas.style.touchAction = m.mode === "3d" ? "pan-y" : "auto";
+        touchMode();
       },
       get mode() { return m.mode; },
       setReduced(v) { m.reduced = !!v; },

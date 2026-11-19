@@ -474,7 +474,7 @@
   let geoEnabled = null;
   let geoPending = false;
   const Mp = window.NexMap.create($("map"), $("map-stage"), {
-    colors: COL, mono: MONO,
+    colors: COL, mono: MONO, glCanvas: $("map-gl"),
     onChange: () => { dirty = true; },
     onPick: (ip) => { if (ip) Dt.open("ip", ip, $("map-stage")); },
   });
@@ -564,6 +564,19 @@
       const tr = document.createElement("tr"), td = document.createElement("td");
       td.colSpan = 4; td.textContent = "Henüz saldırı yok"; tr.appendChild(td); tb.appendChild(tr);
     }
+  }
+
+  function store(key, val) { try { localStorage.setItem(key, val); } catch { /* depolama kapalı */ } }
+  function load(key) { try { return localStorage.getItem(key); } catch { return null; } }
+
+  function setMapStyle(style, color, save) {
+    Mp.setStyle(style, color);
+    document.querySelectorAll("[data-style]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.style === Mp.style)));
+    const cb = $("map-color");
+    cb.hidden = Mp.style !== "uydu";
+    cb.setAttribute("aria-pressed", String(!!color));
+    if (save) { store("nexguard.stil", Mp.style); store("nexguard.renk", color ? "1" : "0"); }
+    dirty = true;
   }
 
   function setMapMode(mode, save) {
@@ -892,6 +905,15 @@
     try { saved = localStorage.getItem("nexguard.harita"); } catch { /* depolama kapalı */ }
     setMapMode(saved === "3d" ? "3d" : "2d", false);
     document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => setMapMode(b.dataset.mode, true)));
+    if (!Mp.glOK) document.querySelectorAll('[data-style="sinir"], [data-style="uydu"]').forEach((b) => { b.disabled = true; b.title = "Bu tarayıcıda WebGL2 yok"; });
+    let color = load("nexguard.renk") === "1";
+    setMapStyle(load("nexguard.stil") || "nokta", color, false);
+    document.querySelectorAll("[data-style]").forEach((b) => b.addEventListener("click", () => setMapStyle(b.dataset.style, color, true)));
+    $("map-color").addEventListener("click", () => { color = !color; setMapStyle(Mp.style, color, true); });
+    document.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", () => {
+      const z = b.dataset.zoom;
+      if (z === "reset") Mp.resetView(); else Mp.zoomBy(z === "in" ? 1.4 : 1 / 1.4);
+    }));
     updateMap(Date.now());
 
     const ro = new ResizeObserver(resizeAll);

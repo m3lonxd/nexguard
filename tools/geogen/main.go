@@ -3,6 +3,7 @@
 //
 //   - internal/geo/centroids_gen.go: ISO 3166-1 alfa-2 kodu -> etiket noktası ve Türkçe ad
 //   - web/dunya.js: 2B harita ızgarası ve 3B küre için kara noktaları
+//   - web/sinirlar.js: ülke sınırı ve kıyı halkaları (SINIRLAR ve UYDU stilleri)
 //
 // Kaynak dosya depoya girmez; yeniden üretmek için:
 //
@@ -95,6 +96,7 @@ func main() {
 	src := flag.String("src", "ne_110m_admin_0_countries.geojson", "Natural Earth 110m ülkeler GeoJSON dosyası")
 	goOut := flag.String("go", "internal/geo/centroids_gen.go", "ülke merkezleri Go çıktısı")
 	jsOut := flag.String("js", "web/dunya.js", "kara noktaları JS çıktısı")
+	bordersOut := flag.String("borders", "web/sinirlar.js", "ülke sınırları JS çıktısı")
 	flag.Parse()
 
 	b, err := os.ReadFile(*src)
@@ -109,6 +111,7 @@ func main() {
 	}
 
 	var polys []poly
+	var rings []ring // tüm halkalar (Antarktika dahil, sınır çizimi için)
 	type cen struct {
 		lat, lon float64
 		name     string
@@ -127,6 +130,9 @@ func main() {
 			if err := json.Unmarshal(f.Geometry.Coordinates, &groups); err != nil {
 				log.Fatal(err)
 			}
+		}
+		for _, g := range groups {
+			rings = append(rings, g...)
 		}
 		iso := f.Properties.ISO
 		if iso == "AQ" { // Antarktika haritada yer kaplar, saldırı kaynağı değildir
@@ -190,6 +196,29 @@ func main() {
 	if err := os.WriteFile(*jsOut, js.Bytes(), 0o644); err != nil {
 		log.Fatal(err)
 	}
+
+	// sınırlar: her halka [boylam, enlem] x 100 tam sayı dizisi
+	var bj bytes.Buffer
+	bj.WriteString("/* Üretildi: go run ./tools/geogen. Kaynak: Natural Earth 1:110m (public domain).\n")
+	bj.WriteString("   Her halka [boylam, enlem] x 100 çiftleri; ülke sınırları ve kıyılar. */\n")
+	bj.WriteString("window.NEXBORDERS=[")
+	nv := 0
+	for i, r := range rings {
+		if i > 0 {
+			bj.WriteByte(',')
+		}
+		v := make([]int, 0, len(r)*2)
+		for _, c := range r {
+			v = append(v, int(math.Round(c[0]*100)), int(math.Round(c[1]*100)))
+		}
+		nv += len(r)
+		bj.WriteString(ints(v))
+	}
+	bj.WriteString("];\n")
+	if err := os.WriteFile(*bordersOut, bj.Bytes(), 0o644); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("geogen: %d halka, %d köşe", len(rings), nv)
 
 	keys := make([]string, 0, len(cens))
 	for k := range cens {

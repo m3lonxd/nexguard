@@ -32,9 +32,17 @@
   <section class="panel map" id="map-panel" aria-labelledby="t-title">
     <div class="phead">
       <h2 class="label" id="t-title">SALDIRI HARİTASI <span class="dim">/ SON 24 SAAT</span></h2>
-      <div class="mode" role="group" aria-label="Harita görünümü">
-        <button type="button" class="label" data-mode="2d" aria-pressed="true">2B</button>
-        <button type="button" class="label" data-mode="3d" aria-pressed="false">3B</button>
+      <div class="map-ctl">
+        <div class="mode" role="group" aria-label="Harita stili">
+          <button type="button" class="label" data-style="nokta" aria-pressed="true">NOKTA</button>
+          <button type="button" class="label" data-style="sinir" aria-pressed="false">SINIR</button>
+          <button type="button" class="label" data-style="uydu" aria-pressed="false">UYDU</button>
+        </div>
+        <button type="button" class="label solo" id="map-color" aria-pressed="false" hidden>RENK</button>
+        <div class="mode" role="group" aria-label="Harita görünümü">
+          <button type="button" class="label" data-mode="2d" aria-pressed="true">2B</button>
+          <button type="button" class="label" data-mode="3d" aria-pressed="false">3B</button>
+        </div>
       </div>
     </div>
     <div class="kpis">
@@ -52,7 +60,13 @@
       </div>
     </div>
     <div class="stage" id="map-stage" tabindex="0" role="group" aria-label="Saldırı haritası; 3B görünümde ok tuşlarıyla döner, ayrıntılar aşağıdaki tabloda" aria-describedby="sr-map">
+      <canvas id="map-gl" aria-hidden="true" hidden></canvas>
       <canvas id="map" role="img" aria-label="Son 24 saatteki saldırıların kaynak ülkeleri"></canvas>
+      <div class="zoom" role="group" aria-label="Yakınlaştırma">
+        <button type="button" data-zoom="in" aria-label="Yakınlaştır">+</button>
+        <button type="button" data-zoom="out" aria-label="Uzaklaştır">−</button>
+        <button type="button" data-zoom="reset" aria-label="Görünümü sıfırla">⟲</button>
+      </div>
     </div>
     <div class="sr-only"><table id="sr-map">
       <caption>Son 24 saatte en çok deneme yapan kaynak IP'ler ve ülkeleri</caption>
@@ -132,6 +146,8 @@
 </aside>
 
 <script src="/dunya.js"></script>
+<script src="/sinirlar.js"></script>
+<script src="/kure.js"></script>
 <script src="/harita.js"></script>
 <script src="/detay.js"></script>
 <script src="/app.js"></script>

@@ -478,3 +478,43 @@ table.readout {
 @media (prefers-reduced-motion: reduce) {
   .drawer.in, .drawer .d-sec, .drawer .d-spark .col, .d-cmd .st { animation: none !important; }
 }
+
+/* ---- Harita stil ve yakınlaştırma denetimleri ---- */
+.map-ctl { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+.mode button:disabled { opacity: 0.35; cursor: default; }
+.solo {
+  font-family: inherit;
+  background: transparent;
+  border: 1px solid var(--p5);
+  color: var(--p3);
+  padding: 3px 9px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.solo[aria-pressed="true"] { color: var(--txt); border-color: var(--p3); }
+.solo[hidden] { display: none; }
+.stage canvas[hidden] { display: none; }
+.zoom {
+  position: absolute;
+  z-index: 2;
+  right: 14px;
+  bottom: 30px;
+  display: flex;
+  flex-direction: column;
+}
+.zoom button {
+  font: inherit;
+  font-size: 13px;
+  width: 26px;
+  height: 26px;
+  color: var(--p2);
+  background: rgba(6, 6, 6, 0.75);
+  border: 1px solid var(--p5);
+  cursor: pointer;
+  line-height: 1;
+}
+.zoom button + button { border-top: 0; }
+.zoom button:hover { color: var(--txt); border-color: var(--p3); }
+.zoom button:focus-visible { outline: 1px solid var(--warn); outline-offset: 1px; position: relative; }
+/* harita görüntü tabanının üstünde KPI okunurluğu */
+.kpis { text-shadow: 0 0 2px var(--bg), 0 0 8px var(--bg), 0 0 14px var(--bg); }
