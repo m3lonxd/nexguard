@@ -21,6 +21,7 @@ html { color-scheme: dark; background: var(--bg); }
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: var(--pad);
   background: var(--bg);
   color: var(--txt);
@@ -77,10 +78,11 @@ body::before {
     "terrain findings"
     "terrain actions"
     "hist servers";
-  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1.7fr) minmax(0, 1fr) minmax(190px, 1fr);
   border: 1px solid var(--p5);
-  min-height: calc(100vh - 2 * var(--pad));
-  max-width: 1760px;
+  height: calc(100vh - 2 * var(--pad));
+  height: calc(100dvh - 2 * var(--pad));
+  min-height: 700px;
   margin: 0 auto;
 }
 
@@ -135,11 +137,11 @@ body::before {
   border-top: 1px solid var(--p5);
   padding: 10px 14px 12px;
 }
-.terrain { grid-area: terrain; display: flex; flex-direction: column; border-right: 1px solid var(--p5); }
-.findings { grid-area: findings; }
-.actions { grid-area: actions; }
-.hist { grid-area: hist; border-right: 1px solid var(--p5); }
-.servers { grid-area: servers; }
+.terrain { grid-area: terrain; display: flex; flex-direction: column; border-right: 1px solid var(--p5); min-height: 0; }
+.findings { grid-area: findings; overflow: hidden; min-height: 0; }
+.actions { grid-area: actions; overflow: hidden; min-height: 0; }
+.hist { grid-area: hist; border-right: 1px solid var(--p5); display: flex; flex-direction: column; min-height: 0; }
+.servers { grid-area: servers; overflow: hidden; min-height: 0; }
 .panel.side + .panel.side { border-top-color: var(--p4); }
 
 .phead {
@@ -195,7 +197,7 @@ body::before {
 .stage {
   position: relative;
   flex: 1 1 auto;
-  min-height: 330px;
+  min-height: 0;
   margin: 0 -6px;
 }
 .stage canvas, .hstage canvas {
@@ -205,7 +207,7 @@ body::before {
   height: 100%;
   display: block;
 }
-.hstage { position: relative; height: 200px; margin: 0 -6px; }
+.hstage { position: relative; flex: 1 1 auto; min-height: 150px; margin: 0 -6px; }
 
 /* ---- Okuma sütunları ---- */
 table.readout {
@@ -247,15 +249,15 @@ table.readout {
 }
 .readout .idx { color: var(--p3); }
 .readout td.num, .readout th.num { padding-left: 8px; }
-#f-table td:nth-child(4), #f-table th:nth-child(4) { padding-left: 12px; }
+#f-table td:nth-child(4), #f-table th:nth-child(4) { padding-left: 16px; }
 #a-table .sub { white-space: normal; }
 .readout .unit { color: var(--p3); font-size: 10.5px; margin-left: 3px; }
 .readout .ok { color: var(--warn); }
 .readout .mute { color: var(--p3); }
 
 #f-table .c-idx { width: 30px; }
-#f-table .c-ip { width: 38%; }
-#f-table .c-n { width: 14%; }
+#f-table .c-ip { width: 34%; }
+#f-table .c-n { width: 84px; }
 #f-table .c-t { width: 72px; }
 #a-table .c-ttl { width: 66px; }
 #a-table .c-st { width: 104px; }
@@ -274,10 +276,14 @@ table.readout {
   .frame {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "meta" "err" "terrain" "findings" "actions" "hist" "servers";
+    grid-template-rows: none;
+    height: auto;
     min-height: 0;
   }
   .terrain, .hist { border-right: 0; }
-  .stage { min-height: 320px; flex: none; height: 64vw; max-height: 420px; }
+  .findings, .actions, .servers { overflow: visible; }
+  .stage { flex: none; height: auto; aspect-ratio: 1.8; max-height: 480px; }
+  .hstage { flex: none; height: 200px; }
   .kpis { gap: 22px; position: static; padding-bottom: 4px; }
 }
 
