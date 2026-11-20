@@ -99,7 +99,7 @@ h1, h2 { font-family: var(--kond); font-weight: 500; letter-spacing: 0; color: v
   .kod-izgara { grid-template-columns: 1fr 1fr; column-gap: 28px; }
 }
 @media (max-width: 639px) {
-  .nav a:nth-child(2) { display: none; }
+  .nav a:nth-child(1) { display: none; }
   .nav { gap: 14px; }
   .marka span { display: none; }
 }
@@ -182,4 +182,12 @@ h1, h2 { font-family: var(--kond); font-weight: 500; letter-spacing: 0; color: v
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .sahne-acik .blok { transition: none; }
+}
+
+/* dar ekranda menü taşmasın: GitHub hero'da da var, menü yatay kayar */
+@media (max-width: 640px) {
+  .meta { gap: 14px; }
+  .nav { gap: 14px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a[href^="https"] { display: none; }
 }

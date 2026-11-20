@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500&family=IBM+Plex+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="style.css?v=850e74899d">
+  <link rel="stylesheet" href="style.css?v=d7c2e27fab">
 </head>
 <body>
   <a class="atla" href="#icerik">İçeriğe geç</a>
@@ -26,6 +26,7 @@
     <a class="marka" href="#" aria-label="NexGuard, sayfa başı"><i aria-hidden="true"></i>NEXGUARD <span>0.1.0</span></a>
     <nav class="nav" aria-label="Ana gezinme">
       <a href="#nasil">Nasıl çalışır</a>
+      <a href="#panel">Panel</a>
       <a href="#sinirlar">Sınırlar</a>
       <a href="#kurulum">Kurulum</a>
       <a href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub ↗</a>
@@ -93,21 +94,38 @@
       </div>
     </section>
 
+    <section class="panel" id="panel" aria-labelledby="h-panel">
+      <div class="kap">
+        <p class="mikro">05 · PANEL</p>
+        <h2 id="h-panel">Panelden izle, müdahale et</h2>
+        <p class="giris">Ajan panele kalıcı bir WebSocket ile bağlanır (<code>/api/v1/agent</code>). Panel komutu bu kanaldan gönderir; ajan o an bağlı değilse komut kuyrukta bekler, bağlanınca uygulanır.</p>
+        <ol class="tablo">
+          <li><span class="i">01</span><div><b>Saldırı haritası.</b> Son 24 saatin kaynak IP'leri ülke düzeyinde, sunucuya giden yaylarla gösterilir. 2B harita ya da 3B küre; nokta, ülke sınırı ya da uydu görüntüsü (gri veya renkli); tekerlekle 8 kata kadar yakınlaştırma. Konum için DB-IP Country Lite veritabanı gerekir (<code>--geoip</code>).</div></li>
+          <li><span class="i">02</span><div><b>Detay çekmecesi.</b> Bir bulguya, aksiyona, sunucuya ya da haritadaki noktaya tıklanınca açılır: ülke, saatlik iz, denenen kullanıcılar, olay geçmişi; sunucu için ajan durumu, etkin engeller ve komut geçmişi.</div></li>
+          <li><span class="i">03</span><div><b>Elle müdahale.</b> IP'yi 1 ya da 24 saat engelle, engeli kaldır, izin listesine al. Komutun durumu canlı izlenir: kuyrukta, gönderildi, uygulandı ya da hata ve sebebi.</div></li>
+          <li><span class="i">04</span><div><b>Honeypot.</b> Panelden açılır. Sahte SSH (ör. 2222) her giriş denemesini kullanıcı, şifre ve istemci sürümüyle kaydeder, hiçbirini kabul etmez; TCP tuzakları (ör. 23, 3389, 5900) bağlantının ilk baytlarını kaydedip kapatır. Dokunan IP istenirse otomatik engellenir.</div></li>
+        </ol>
+        <p class="alt-not">Honeypot portları sunucunun güvenlik duvarında ayrıca açılmalıdır; ajan bunun için güvenlik duvarına dokunmaz. Gerçek SSH portunu (22) tuzak olarak seçmeyin.</p>
+      </div>
+    </section>
+
     <section class="panel" id="sinirlar" aria-labelledby="h-sinir">
       <div class="kap">
-        <p class="mikro">05 · SINIRLAR</p>
+        <p class="mikro">06 · SINIRLAR</p>
         <h2 id="h-sinir">Şu an yapmadıkları</h2>
         <div class="iki">
           <ol class="tablo">
-            <li><span class="i">01</span><div><b>Başka tespit yok.</b> README kapsam dışı sayıyor: paket ve CVE taraması, dosya bütünlüğü izleme, rootkit taraması, yapay zekâ açıklamaları, çoklu sunucu arayüzü iyileştirmeleri.</div></li>
-            <li><span class="i">02</span><div><b>İzin listesi yok.</b> Eşiği aşan her IP engellenir; kendi adresiniz de dahil.</div></li>
+            <li><span class="i">01</span><div><b>İki tespit var.</b> SSH kaba kuvvet ve honeypot dokunuşu. Paket ve CVE taraması, dosya bütünlüğü izleme, rootkit taraması ve yapay zekâ açıklamaları kapsam dışı.</div></li>
+            <li><span class="i">02</span><div><b>İzin listesi elle tutulur.</b> Listede olmayan ve eşiği aşan her IP engellenir; sunucunun kendi dış adresi de dahil. Loopback, link-local ve 0.0.0.0 hiçbir zaman engellenmez.</div></li>
             <li><span class="i">03</span><div><b>Süre bellekte tutulur.</b> Ajan engel süresi dolmadan yeniden başlarsa kural otomatik silinmez.</div></li>
             <li><span class="i">04</span><div><b>Paketli birimde ufw çalışmaz.</b> Servis root dışı kullanıcıyla çalışır; ufw root ister. Yalnızca ufw olan bir makinede aksiyon <code>failed</code> olarak kaydedilir.</div></li>
             <li><span class="i">05</span><div><b>nft için zincir şart.</b> Kural <code>inet filter input</code> zincirine eklenir; zincir yoksa ufw denenir.</div></li>
+            <li><span class="i">06</span><div><b>Konum ülke düzeyindedir.</b> Haritadaki nokta ülkenin merkezidir, şehir değil. Özel ve yerel adresler konumlanmaz; <code>--geoip</code> verilmezse harita konumsuz çalışır.</div></li>
           </ol>
           <aside class="not" role="note">
             <p class="mikro"><span class="a">[ GÜVENLİK NOTU ]</span></p>
             <p><code>POST /api/v1/enroll</code> kimlik doğrulamasızdır: panele erişebilen herkes ajan kaydedip bearer token alabilir. Okuma uçları (<code>/api/v1/findings</code>, <code>/api/v1/actions</code>, <code>/api/v1/stream</code>) da açıktır.</p>
+            <p>Komut ucu (<code>POST /api/v1/servers/{id}/commands</code>) da doğrulamasızdır: panele erişen herkes IP engelleyebilir, izin listesini değiştirebilir, honeypot açabilir.</p>
             <p>Tek kullanımlık kayıt kodu, mTLS ya da izin listesi eklenene dek paneli yalnızca güvenilir ağda çalıştırın.</p>
           </aside>
         </div>
@@ -116,7 +134,7 @@
 
     <section class="panel" id="kurulum" aria-labelledby="h-kurulum">
       <div class="kap">
-        <p class="mikro">06 · KURULUM</p>
+        <p class="mikro">07 · KURULUM</p>
         <h2 id="h-kurulum">Kurulum</h2>
         <p class="giris">Go gerekir. Aşağıdaki akış README'deki elle uçtan uca testtir: sahte bir auth.log ile engellemeyi tetikler. Gerçek bir sunucuda <code>--authlog</code> vermeyin.</p>
         <div class="kod-izgara">
@@ -142,14 +160,14 @@ done &gt; /tmp/fake-auth.log</code></pre></figure>
 <pre><code>curl -s http://localhost:8842/api/v1/findings | jq
 curl -s http://localhost:8842/api/v1/actions  | jq</code></pre></figure>
         </div>
-        <p class="alt-not">nft ya da ufw yoksa engel denemesi <code>failed</code> olarak kaydedilir, ajan çökmez. Panel arayüzü: <code>http://localhost:8842/</code>. .deb için: <code>nfpm package --config packaging/nfpm-agent.yaml --target dist/ --packager deb</code> (sunucu için <code>nfpm-server.yaml</code>). Paket servisi başlatmaz; önce <code>--enroll</code> ile <code>/etc/nexguard/agent.yaml</code> oluşturun.</p>
+        <p class="alt-not">nft ya da ufw yoksa engel denemesi <code>failed</code> olarak kaydedilir, ajan çökmez. Panel arayüzü: <code>http://localhost:8842/</code>. Saldırı haritası için paneli <code>--geoip data/dbip-country-lite.mmdb</code> ile başlatın (indirme komutu README'de). .deb için: <code>nfpm package --config packaging/nfpm-agent.yaml --target dist/ --packager deb</code> (sunucu için <code>nfpm-server.yaml</code>). Paket servisi başlatmaz; önce <code>--enroll</code> ile <code>/etc/nexguard/agent.yaml</code> oluşturun.</p>
       </div>
     </section>
 
     <section class="kapanis" id="kapanis" aria-labelledby="h-son">
       <figure class="gorsel"><picture><source srcset="media/sahne-4.webp" type="image/webp"><img src="media/sahne-4.jpg" alt="" width="1200" height="600" loading="lazy"></picture></figure>
       <div class="kap">
-        <p class="mikro">07 · KAYNAK</p>
+        <p class="mikro">08 · KAYNAK</p>
         <h2 id="h-son">Kaynak kod, testler ve paketleme dosyaları GitHub'da.</h2>
         <div class="cta"><a class="btn" href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub ↗</a></div>
       </div>
