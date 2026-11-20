@@ -17,7 +17,7 @@ from pathlib import Path
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
-from .. import config, db, geoip
+from .. import config, db, geoip, tcptuzak
 from . import Module
 
 router = APIRouter()
@@ -147,8 +147,17 @@ def build(journal_lines, cowrie_lines, installed: bool, note: str = "") -> dict:
     with_cmd = [s for s in sessions if s["commands"]]
     shown = (with_cmd + [s for s in hacked if not s["commands"]])[:30]
     shown.sort(key=lambda s: s["ts"], reverse=True)
+    # IP detay çekmecesi için sınırlı özet: en çok deneyen 300 IP, her biri için en çok denenen 8 kullanıcı
+    per_ip: dict[str, dict] = {}
+    keep = dict(top_ips)
+    for f in failed:
+        if f["ip"] in keep:
+            e = per_ip.setdefault(f["ip"], {"n": keep[f["ip"]], "users": Counter(), "last": ""})
+            e["users"][f["user"]] += 1
+            e["last"] = max(e["last"], f["ts"])
+    ssh_by_ip = {ip: {"n": e["n"], "users": e["users"].most_common(8), "last": _when(e["last"])} for ip, e in per_ip.items()}
     return {
-        "note": note, "installed": installed,
+        "note": note, "installed": installed, "ssh_by_ip": ssh_by_ip,
         "attempts": len(failed), "unique_ips": len(by_ip), "invalid": sum(1 for f in failed if f["invalid"]),
         "countries": sorted(countries.values(), key=lambda e: -e["n"])[:12], "country_count": len(countries),
         "top_users": Counter(f["user"] for f in failed).most_common(8),
@@ -186,6 +195,25 @@ def request_state(want: str) -> None:
     os.replace(tmp, want_path())
 
 
+@router.post("/tcp")
+def tcp_save(request: Request, enabled: str = Form(""), ports: str = Form("")):
+    """TCP tuzağı ayarı: panel yalnız ayar dosyasını yazar, portları nexguard-tcptuzak servisi açar."""
+    plist, err = tcptuzak.validate_ports(ports)
+    if err:
+        request.session["flash"] = err
+    elif enabled and not plist:
+        request.session["flash"] = "Açmak için en az bir port girin."
+    else:
+        try:
+            tcptuzak.save_config(bool(enabled), plist)
+            db.log_event("tuzak", "info", f"TCP tuzağı {'açıldı' if enabled else 'kapatıldı'}: {', '.join(map(str, plist)) or '-'}")
+            request.session["flash"] = ("TCP tuzağı açılıyor; servis birkaç saniye içinde portları dinler." if enabled
+                                        else "TCP tuzağı kapatılıyor.")
+        except OSError as exc:
+            request.session["flash"] = f"Ayar yazılamadı ({exc.__class__.__name__})."
+    return RedirectResponse("/m/tuzak#tcp", status_code=303)
+
+
 @router.post("/toggle")
 def toggle(request: Request, want: str = Form("")):
     if want not in ("on", "off"):
@@ -209,7 +237,7 @@ def collect() -> dict:
             lines, note = _read_journal()
             cow, installed = _read_cowrie()
             _cache.update(at=time.time(), data=build(lines, cow, installed, note))
-        return {**_cache["data"], "service": state, "real_ssh": real_ssh()}
+        return {**_cache["data"], "service": state, "real_ssh": real_ssh(), "tcp": tcptuzak.summary()}
 
 
 def real_ssh() -> dict:

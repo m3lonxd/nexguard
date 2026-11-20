@@ -181,11 +181,13 @@
   }
 
   function render(p) {
+    window.NexLive = p;
     setStateClasses(p);
     var vd = $("live-verdict");
     if (vd) vd.textContent = p.countries.length ? p.verdict : (p.installed ? "Şu an dışarıdan bağlı kaynak yok." : "Coğrafya veritabanı kurulu değil.");
 
     if (svg) renderMap(p);
+    if (window.NexKure) window.NexKure.update(p);
     renderPanels(p);
     first = false;
   }
@@ -256,7 +258,10 @@
       clear(ts);
       if (!p.sources.length) { var f = td("Bağlantı yok", "muted"); f.colSpan = 4; ts.appendChild(row([f])); }
       p.sources.forEach(function (s) {
-        ts.appendChild(row([td(s.ip), td(String(s.n)), td(s.country), td(s.flags.length ? s.flags.join(", ") : "-")]));
+        var ipCell = document.createElement("td"), ipBtn = document.createElement("button");
+        ipBtn.type = "button"; ipBtn.className = "ip-link"; ipBtn.setAttribute("data-ip", s.ip); ipBtn.textContent = s.ip;
+        ipCell.appendChild(ipBtn);
+        ts.appendChild(row([ipCell, td(String(s.n)), td(s.country), td(s.flags.length ? s.flags.join(", ") : "-")]));
       });
     }
   }

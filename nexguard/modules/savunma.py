@@ -5,7 +5,7 @@ import time
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
-from .. import abuse, charts, db, defense, mail, sensor, upstream
+from .. import abuse, charts, db, defense, ipdetail, mail, sensor, upstream
 from . import Module
 
 router = APIRouter()
@@ -38,27 +38,12 @@ def save_auto(request: Request, autoblock: str = Form(""), src_pps: str = Form("
 
 @router.post("/block")
 def manual_block(request: Request, ip: str = Form(""), minutes: str = Form("60")):
-    ip = ip.strip()
-    try:
-        ipaddress.ip_address(ip)
-        mins = int(minutes)
-    except ValueError:
-        return _flash(request, "Geçerli bir IP adresi ve süre girin.")
-    if not 1 <= mins <= 1440:
-        return _flash(request, "Süre 1 ile 1440 dakika arasında olmalı.")
-    if not defense.blockable(ip):
-        return _flash(request, f"{ip} engellenemez: yerel/özel adres ya da izin listesinde.")
-    defense.block([(ip, "elle")], ttl=mins * 60)
-    db.log_event("savunma", "info", f"Elle engel: {ip}, {mins} dk")
-    return _flash(request, f"{ip} {mins} dakika engellendi.")
+    return _flash(request, ipdetail.block(ip, minutes)[1])
 
 
 @router.post("/unblock")
 def manual_unblock(request: Request, ip: str = Form("")):
-    if defense.unblock(ip.strip()):
-        db.log_event("savunma", "info", f"Engel kaldırıldı: {ip.strip()}")
-        return _flash(request, f"{ip.strip()} engeli kaldırıldı.")
-    return _flash(request, "Bu IP engel listesinde değil.")
+    return _flash(request, ipdetail.unblock(ip)[1])
 
 
 @router.post("/clear")

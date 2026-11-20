@@ -42,7 +42,7 @@
       <h2>Tuzağa düşenler</h2>
       {% for s in data.trap_shown %}
       <article class="trap">
-        <div class="trap-head"><b>{{ s.ip }}</b><span class="muted">{{ s.country }} · {{ s.when }}</span>{% if s.user %}<span class="muted">giriş: <code>{{ s.user }}</code> / <code>{{ s.password or "(boş)" }}</code></span>{% endif %}</div>
+        <div class="trap-head"><button type="button" class="ip-link" data-ip="{{ s.ip }}">{{ s.ip }}</button><span class="muted">{{ s.country }} · {{ s.when }}</span>{% if s.user %}<span class="muted">giriş: <code>{{ s.user }}</code> / <code>{{ s.password or "(boş)" }}</code></span>{% endif %}</div>
         {% if s.commands %}<pre>{% for c in s.commands %}$ {{ c }}
 {% endfor %}</pre>{% else %}<p class="note">Girdi, komut yazmadan çıktı.</p>{% endif %}
         {% if s.downloads %}<p class="note">İndirmeye çalıştı: {% for u in s.downloads %}<code>{{ u }}</code>{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
@@ -68,18 +68,45 @@
     {% else %}<p class="muted">Kayıt yok.</p>{% endif %}
     <h2 class="mt">En ısrarcı IP'ler</h2>
     {% if data.top_ips %}<div class="tscroll"><table><thead><tr><th>IP</th><th>Ülke</th><th>Deneme</th></tr></thead><tbody>
-    {% for r in data.top_ips %}<tr><td>{{ r.ip }}</td><td>{{ r.country }}</td><td>{{ r.n }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    {% for r in data.top_ips %}<tr><td><button type="button" class="ip-link" data-ip="{{ r.ip }}">{{ r.ip }}</button></td><td>{{ r.country }}</td><td>{{ r.n }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
   </section>
   <section><h2>Son denemeler</h2>
     {% if data.recent %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>Kullanıcı</th><th>IP</th><th>Ülke</th></tr></thead><tbody>
-    {% for f in data.recent %}<tr><td>{{ f.when }}</td><td><code>{{ f.user or "(boş)" }}</code></td><td>{{ f.ip }}</td><td>{{ f.country }}</td></tr>{% endfor %}</tbody></table></div>
+    {% for f in data.recent %}<tr><td>{{ f.when }}</td><td><code>{{ f.user or "(boş)" }}</code></td><td><button type="button" class="ip-link" data-ip="{{ f.ip }}">{{ f.ip }}</button></td><td>{{ f.country }}</td></tr>{% endfor %}</tbody></table></div>
     {% else %}<p class="muted">Kayıt yok.</p>{% endif %}
   </section>
 </div>
 <section class="wide"><h2>Gerçek SSH'a başarılı girişler</h2>
   <p class="note">Bunlar tuzak değil, gerçek sisteme yapılan girişler. Tanımadığın bir IP görürsen ciddiye al.</p>
   {% if data.accepted %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>Kullanıcı</th><th>Yöntem</th><th>IP</th><th>Ülke</th></tr></thead><tbody>
-  {% for a in data.accepted %}<tr><td>{{ a.when }}</td><td><code>{{ a.user }}</code></td><td>{{ a.method }}</td><td>{{ a.ip }}</td><td>{{ a.country }}</td></tr>{% endfor %}</tbody></table></div>
+  {% for a in data.accepted %}<tr><td>{{ a.when }}</td><td><code>{{ a.user }}</code></td><td>{{ a.method }}</td><td><button type="button" class="ip-link" data-ip="{{ a.ip }}">{{ a.ip }}</button></td><td>{{ a.country }}</td></tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="muted">Kayıt yok.</p>{% endif %}
+</section>
+{% set tc = data.tcp %}
+<section class="wide" id="tcp" aria-labelledby="tcp-h">
+  <div class="head-row"><h2 id="tcp-h">TCP tuzakları</h2>
+    <span class="tag {{ 'ok' if tc.service.running and tc.config.enabled and tc.service.listening else 'warn' if tc.config.enabled else 'idle' }}">{{ ('dinliyor: ' ~ (tc.service.listening|join(', '))) if tc.service.running and tc.service.listening else ('açık ama servis çalışmıyor' if tc.config.enabled else 'kapalı') }}</span></div>
+  <p class="note">Kimsenin meşru olarak bağlanmadığı portları (Telnet, RDP, VNC gibi) dinler; bağlananın adresini ve gönderdiği ilk baytları kaydedip bağlantıyı kapatır. Hiçbir şeyi engellemez. Portları <code>nexguard-tcptuzak</code> servisi açar; dışarıdan ulaşılması için güvenlik duvarında da açılmaları gerekir.</p>
+  {% for p, e in tc.service.errors.items() %}<p class="note tag warn">{{ e }}</p>{% endfor %}
+  <form class="tcp-form" method="post" action="/m/tuzak/tcp">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label class="check"><input type="checkbox" name="enabled" value="1"{% if tc.config.enabled %} checked{% endif %}> Açık</label>
+    <label class="field"><span>Portlar</span><input type="text" name="ports" inputmode="numeric" spellcheck="false" value="{{ (tc.config.ports or [23, 2323, 3389, 5900])|join(', ') }}" aria-describedby="tcp-ports-help"></label>
+    <button>Kaydet</button>
+    <span class="note" id="tcp-ports-help">En fazla 16 port. 22, 53, 80, 443 ve panel portu seçilemez.</span>
+  </form>
+  <div class="split tight">
+    <div>
+      <h3>Son 24 saat</h3>
+      <p class="big"><span class="count">{{ tc.total24 }}</span><small>dokunuş · {{ tc.ips24 }} IP</small></p>
+      {% if tc.by_port %}<ul class="rank">{% for p, n in tc.by_port %}<li><code>{{ p }}</code><span>{{ n }}</span></li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div>
+      <h3>Son dokunuşlar</h3>
+      {% if tc.recent %}<div class="tscroll"><table><thead><tr><th>Zaman</th><th>IP</th><th>Port</th><th>İlk baytlar</th></tr></thead><tbody>
+      {% for h in tc.recent %}<tr><td>{{ h.when }}{% if h.n > 1 %} <span class="muted">×{{ h.n }}</span>{% endif %}</td><td><button type="button" class="ip-link" data-ip="{{ h.ip }}">{{ h.ip }}</button></td><td>{{ h.port }}</td><td><code class="clip">{{ h.payload or "(boş)" }}</code></td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<p class="muted">{{ "Henüz dokunan yok." if tc.config.enabled else "TCP tuzağı kapalı." }}</p>{% endif %}
+    </div>
+  </div>
 </section>
 {% endblock %}

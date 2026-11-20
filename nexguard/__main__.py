@@ -31,11 +31,15 @@ def main() -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run", help="Paneli başlat")
     sub.add_parser("sensor", help="Paket algılayıcıyı başlat (CAP_NET_RAW gerekir)")
+    sub.add_parser("tcptuzak", help="Çok portlu TCP tuzağını başlat (1024 altı portlar CAP_NET_BIND_SERVICE ister)")
     adm = sub.add_parser("create-admin", help="Yönetici oluştur / parolasını sıfırla")
     adm.add_argument("username")
     args = parser.parse_args()
     if args.cmd == "create-admin":
         return create_admin(args.username)
+    if args.cmd == "tcptuzak":
+        from . import tcptuzak
+        return tcptuzak.run()
     if args.cmd == "sensor":
         from . import sensor
         return sensor.run()

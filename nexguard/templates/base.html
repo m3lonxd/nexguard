@@ -29,6 +29,18 @@
   {% block content %}{% endblock %}
 </main>
 {% if user %}<footer class="site">NexGuard {{ version }} · yerel panel · veri bu makineden çıkmaz</footer>{% endif %}
+{% if user %}
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="dr-title" hidden>
+  <header class="dr-head">
+    <div class="dr-top"><span class="dr-kind" id="dr-kind"></span><button type="button" class="icon" id="dr-close" aria-label="Detayı kapat">Kapat</button></div>
+    <h2 id="dr-title"></h2>
+    <p class="dr-sub" id="dr-sub"></p>
+    <div class="dr-chips" id="dr-chips"></div>
+  </header>
+  <div class="dr-body" id="dr-body"></div>
+</aside>
+<script src="/static/detay.js" defer></script>
+{% endif %}
 <script src="/static/site.js" defer></script>
 </body>
 </html>

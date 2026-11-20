@@ -16,6 +16,8 @@
     <div class="tscroll"><table><thead><tr><th>IP</th><th>Bağlantı</th><th>Ülke</th><th>İşaret</th></tr></thead><tbody id="tb-sources"><tr><td colspan="4" class="muted">Veri bekleniyor.</td></tr></tbody></table></div>
   </section>
 </div>
-<p class="muted small band-note">Yalnızca sunucuya bağlı TCP kaynakları görünür; hat doyuran UDP/ICMP saldırılarının kaynağı bağlantı tablosunda yoktur. Sorgular yerel veritabanında yapılır, IP adresleri dışarı gönderilmez.{% if not live.installed %} Ülke bilgisi için <a href="/m/geoip">Coğrafya</a> veritabanını indirin.{% endif %} Harita verisi: Natural Earth. Coğrafya verisi: DB-IP Lite.</p>
+<p class="muted small band-note">Yalnızca sunucuya bağlı TCP kaynakları görünür; hat doyuran UDP/ICMP saldırılarının kaynağı bağlantı tablosunda yoktur. Sorgular yerel veritabanında yapılır, IP adresleri dışarı gönderilmez.{% if not live.installed %} Ülke bilgisi için <a href="/m/geoip">Coğrafya</a> veritabanını indirin.{% endif %} Harita verisi: Natural Earth. Coğrafya verisi: DB-IP Lite. Uydu görüntüsü: NASA Blue Marble (kamu malı), yerel dosya.</p>
+<script src="/static/kure.js" defer></script>
+<script src="/static/kure3b.js" defer></script>
 <script src="/static/harita.js" defer></script>
 {% endblock %}
