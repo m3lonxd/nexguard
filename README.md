@@ -25,9 +25,10 @@ Bir saldırı şüphesinde sunucuya bakan kişi, panele girdiğinde saniyeler i�
 | **Genel Bakış** | Durum bandı, son olaylar, özet sayılar |
 | **Denetim** | OPSEC kontrolleri: SSH ayarları, boş parolalar, parolasız sudo, SUID dosyalar. Her bulgu için düzeltme önerisi, uygulama yok |
 | **DDoS izleme** | Bağlantı sayıları ve eşik aşımında bildirim (Telegram, webhook) |
-| **Canlı harita** | TCP bağlantı kaynaklarının dünya haritasında gösterimi |
+| **Canlı harita** | TCP bağlantı kaynaklarının dünya haritasında gösterimi. 2B harita ya da döndürülebilen 3B küre; kürede ülke sınırları ya da uydu görüntüsü (gri veya renkli), tekerlek ve +/− ile 8 kata kadar yakınlaştırma |
 | **Coğrafya** | IP'lerin ülke, ASN ve Tor/VPN işaretleri. DB-IP Lite ile yerel sorgu |
-| **Tuzak** | SSH tuzağındaki denemeler: denenen parolalar, komutlar, kaynak IP'ler |
+| **Tuzak** | SSH tuzağındaki denemeler: denenen parolalar, komutlar, kaynak IP'ler. Ayrıca çok portlu TCP tuzağı (Telnet, RDP, VNC gibi portlarda bağlananı ve ilk baytlarını kaydeder, engellemez) |
+| **IP detayı** | Tablolardaki her IP'ye ya da küredeki ülkeye tıklayınca açılan çekmece: ülke/ASN, anlık bağlantı, SSH denemeleri, tuzak kayıtları, olaylar. Engelleme, engel kaldırma ve izin listesi iki adımlı onayla yapılır |
 | **Ayarlar** | Parola değişimi, 2FA (TOTP) kurulumu, bildirim kanalları |
 
 ## Gizlilik ve güvenlik
@@ -44,6 +45,8 @@ Dürüstlük ürünün parçası:
 
 - Harita yalnızca TCP bağlantılarını gösterir. Hat dolduran UDP veya ICMP saldırılarının kaynağı görünmez.
 - Hacimli (volumetrik) saldırılar sunucuda durdurulamaz. Panel tespit, bildirim ve sertleştirme önerisi sunar.
+- TCP tuzağı yalnızca kaydeder; portlarına dışarıdan ulaşılması için güvenlik duvarında açılmaları gerekir. 22, 53, 80, 443 ve panel portu tuzak olamaz.
+- 3B küre WebGL2 ister; desteklemeyen tarayıcıda 2B harita kullanılır.
 
 ## Kurulum
 
@@ -72,6 +75,16 @@ ssh -N -L 8788:127.0.0.1:8787 kullanici@sunucu
 
 Sonra `http://localhost:8788`.
 
+### Ek bileşenler (isteğe bağlı, root)
+
+Panel `/opt/nexguard` altında `nexguard.service` olarak kuruluysa:
+
+```bash
+sudo sh deploy/kur.sh
+```
+
+Paket algılayıcıyı (`nexguard-sensor`), engel yardımcısını (`nexguard-engel`) ve TCP tuzağını (`nexguard-tcptuzak`) kurar. TCP tuzağı panelden açılana kadar hiçbir port dinlemez; yalnızca `CAP_NET_BIND_SERVICE` yetkisiyle çalışır. Açtığın tuzak portlarını güvenlik duvarında da aç (ör. `ufw allow 2323/tcp`).
+
 ## Yapılandırma
 
 | Ortam değişkeni | Varsayılan | Açıklama |
@@ -97,6 +110,8 @@ nexguard/
   geoip.py        IP → ülke/ASN, Tor listesi
   modules/        Genel Bakış, Denetim, DDoS, Harita, Coğrafya, Tuzak, Ayarlar
   templates/      Jinja2 şablonları
-  static/         tek CSS dosyası, harita betiği, ikon
+  ipdetail.py     IP detay çekmecesinin verisi ve elle engel / izin listesi işlemleri
+  tcptuzak.py     çok portlu TCP tuzağı: servis ve panel tarafı
+  static/         tek CSS dosyası, harita ve 3B küre betikleri, detay çekmecesi, uydu dokusu (NASA Blue Marble, kamu malı)
 tests/            pytest testleri
 ```

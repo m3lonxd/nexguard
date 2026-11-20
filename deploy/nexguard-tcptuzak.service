@@ -1,0 +1,28 @@
+[Unit]
+Description=NexGuard cok portlu TCP tuzagi (yalniz kaydeder, engellemez)
+After=network-online.target nexguard.service
+
+[Service]
+User=nexguard
+WorkingDirectory=/opt/nexguard
+Environment=NEXGUARD_DATA=/var/lib/nexguard
+ExecStart=/opt/nexguard/.venv/bin/python -m nexguard tcptuzak
+Restart=on-failure
+RestartSec=10
+StateDirectory=nexguard
+StateDirectoryMode=0700
+# Yalnız 1024 altı portları (ör. 23) açabilmek için; başka yetki yok.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+Nice=15
+CPUQuota=15%
+MemoryMax=80M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target

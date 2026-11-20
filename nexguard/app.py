@@ -74,6 +74,10 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
     @app.middleware("http")
     async def add_headers(request: Request, call_next):
         response = await call_next(request)
+        # Uydu dokusu birkaç MB ve hiç değişmez (değişirse yeni adla gelir); her açılışta
+        # yeniden indirilmesin. Gizli veri içermez; diğer yanıtlar no-store kalır.
+        if request.url.path.startswith("/static/uydu/") and response.status_code == 200:
+            response.headers["Cache-Control"] = "private, max-age=604800, immutable"
         for k, v in SECURITY_HEADERS.items():
             response.headers.setdefault(k, v)
         return response
@@ -182,6 +186,35 @@ def create_app(limiter: security.LoginLimiter | None = None, background: bool = 
             return JSONResponse({"error": "oturum gerekli"}, status_code=401, headers={"Cache-Control": "no-store"})
         from .modules import harita
         return JSONResponse(harita.live_payload(), headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/ip")
+    def api_ip(request: Request, ip: str = ""):
+        # Eşzamanlı (def): günlük ve tuzak kayıtları diskten okunur, iş parçacığı havuzunda çalışır.
+        if not logged_in(request):
+            return JSONResponse({"error": "oturum gerekli"}, status_code=401, headers={"Cache-Control": "no-store"})
+        from . import ipdetail
+        d = ipdetail.detail(ip)
+        return JSONResponse(d, status_code=400 if "error" in d else 200, headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/ip/{action}")
+    def api_ip_action(request: Request, action: str, ip: str = Form(""), minutes: str = Form("60"),
+                      csrf: str = Form("")):
+        if not logged_in(request):
+            return JSONResponse({"ok": False, "message": "Oturum gerekli."}, status_code=401)
+        if not security.check_csrf(request.session.get("csrf"), csrf):
+            return JSONResponse({"ok": False, "message": "CSRF doğrulaması başarısız; sayfayı yenileyin."}, status_code=400)
+        from . import ipdetail
+        if action == "block":
+            ok, msg = ipdetail.block(ip, minutes)
+        elif action == "unblock":
+            ok, msg = ipdetail.unblock(ip)
+        elif action == "allow":
+            ok, msg = ipdetail.allow(ip, True)
+        elif action == "disallow":
+            ok, msg = ipdetail.allow(ip, False)
+        else:
+            return JSONResponse({"ok": False, "message": "Bilinmeyen işlem."}, status_code=404)
+        return JSONResponse({"ok": ok, "message": msg}, status_code=200 if ok else 400)
 
     @app.get("/m/{slug}", response_class=HTMLResponse)
     async def module_page(request: Request, slug: str):

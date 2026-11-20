@@ -1,8 +1,29 @@
+<div class="map-shell">
+<div class="map-views" role="group" aria-label="Harita görünümü">
+  <button type="button" class="seg" data-mv="2d" aria-pressed="true">2B</button>
+  <button type="button" class="seg" data-mv="3d" aria-pressed="false">3B</button>
+</div>
+<div class="map-style" role="group" aria-label="Küre görünümü" hidden>
+  <button type="button" class="seg" data-ms="sinir" aria-pressed="true">Sınır</button>
+  <button type="button" class="seg" data-ms="uydu" aria-pressed="false">Uydu</button>
+  <button type="button" class="seg" data-mc aria-pressed="false" hidden>Renkli</button>
+</div>
 <svg id="worldmap" data-level="{{ live.level }}" viewBox="0 10 {{ world.w }} 400" role="img" aria-label="Dünya haritası: bağlantı kaynakları" preserveAspectRatio="xMidYMid meet">
   <g class="land">{% for cc, d in world.paths.items() %}{% if cc != 'AQ' %}<path id="c-{{ cc }}" d="{{ d }}"/>{% endif %}{% endfor %}</g>
   <g id="arcs"></g>
   <g id="dots"></g>
   <g id="callouts"></g>
 </svg>
+<div class="globe" tabindex="0" role="img" aria-label="3B küre: bağlantı kaynakları. Sürükleyerek ya da ok tuşlarıyla döndürün, tekerlek ya da artı/eksi ile yakınlaştırın." hidden>
+  <canvas class="g-gl" aria-hidden="true"></canvas>
+  <canvas class="g-ov" aria-hidden="true"></canvas>
+  <div class="g-zoom" role="group" aria-label="Yakınlaştırma">
+    <button type="button" data-gz="in" aria-label="Yakınlaştır">+</button>
+    <button type="button" data-gz="out" aria-label="Uzaklaştır">−</button>
+    <button type="button" data-gz="reset" aria-label="Görünümü sıfırla">⟲</button>
+  </div>
+  <p class="g-note" hidden></p>
+</div>
+</div>
 <div class="map-legend"><span>Az</span><i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i><span>Çok bağlantı</span><span class="anon-key"><i class="anon"></i> Çoğu aracı ağdan</span><span class="anon-key"><i class="anon home-key"></i> Bu sunucu (saat dilimine göre)</span></div>
 <div id="map-tip" class="map-tip" hidden></div>
