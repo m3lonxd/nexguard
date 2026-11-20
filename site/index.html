@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NexGuard — yerel sunucu güvenlik paneli</title>
+  <meta name="description" content="NexGuard, Linux sunucunu izleyen yerel güvenlik paneli: saldırı var mı, trafik nereden geliyor, ayarlarında açık var mı. Veri sunucudan çıkmaz, panel onaysız hiçbir şeyi değiştirmez.">
+  <meta name="theme-color" content="#060606">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="NexGuard — yerel sunucu güvenlik paneli">
+  <meta property="og:description" content="Sunucunda ne olduğunu, veriyi sunucudan çıkarmadan gör.">
+  <meta property="og:image" content="media/sahne-0.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060606'/%3E%3Crect x='9' y='9' width='14' height='14' fill='none' stroke='%23e0a43a' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/jetbrainsmono-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+  <a class="atla" href="#icerik">İçeriğe geç</a>
+  <canvas id="tuval" aria-hidden="true"></canvas>
+  <div class="cerceve" aria-hidden="true"></div>
+
+  <header class="meta">
+    <a class="marka" href="#" aria-label="NexGuard, sayfa başı"><i aria-hidden="true"></i>NEXGUARD <span>0.1.0</span></a>
+    <nav class="nav" aria-label="Ana gezinme">
+      <a href="#nasil">Nasıl çalışır</a>
+      <a href="#moduller">Modüller</a>
+      <a href="#sinirlar">Sınırlar</a>
+      <a href="#kurulum">Kurulum</a>
+      <a href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub ↗</a>
+    </nav>
+    <p class="meta-sag" aria-hidden="true"><span data-meta>SUNUCU → YEREL PANEL</span> <b data-adim>00/04</b></p>
+  </header>
+
+  <main id="icerik">
+    <section class="yol" id="nasil" aria-label="Nasıl çalışır">
+      <div class="sahne">
+        <div class="hud-sahne" id="hud-sahne" aria-hidden="true">
+          <div class="o-esik" data-o="esik">EŞİK</div>
+          <div class="o-cagri" data-o="cagri"><i></i><span>203.0.113.7 · eşik aşıldı</span></div>
+          <div class="o-kilit" data-o="kilit"><b class="br"></b><span class="o-lbl"><em>ENGELLENDİ</em><span data-o="yaz"></span></span></div>
+          <div class="o-hist" data-o="hist"><span class="o-baslik">OLAY / SAAT · SON 24 SA <i>örnek veri</i></span><span data-t="0">00</span><span data-t="6">06</span><span data-t="12">12</span><span data-t="18">18</span><span data-t="24">24</span></div>
+        </div>
+
+        <article class="blok hero-blok" data-blok="0" aria-labelledby="h-baslik">
+          <figure class="gorsel"><picture><source srcset="media/sahne-0.webp" type="image/webp"><img src="media/sahne-0.jpg" alt="Nokta bulutundan oluşan arazi ve Tux" width="1200" height="600" fetchpriority="high"></picture></figure>
+          <p class="mikro">SÜRÜM 0.1.0 · YEREL PANEL</p>
+          <h1 id="h-baslik">Sunucunda ne olduğunu, veriyi sunucudan çıkarmadan gör.</h1>
+          <p class="lead">NexGuard Linux sunucunu izler: saldırı var mı, trafik nereden geliyor, ayarlarında açık var mı. Gerekirse saldıranı engeller, birden çok sunucuyu tek ekranda toplar. Her şey kendi makinende çalışır.</p>
+          <div class="cta">
+            <a class="btn" href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub ↗</a>
+            <a class="btn" href="#kurulum">Kurulum ↓</a>
+          </div>
+          <dl class="okuma">
+            <div><dt>ÖLÇÜM</dt><dd>5<small>sn</small></dd></div>
+            <div><dt>OTURUM</dt><dd>8<small>sa</small></dd></div>
+            <div><dt>EN KISA PAROLA</dt><dd>12<small>karakter</small></dd></div>
+          </dl>
+        </article>
+
+        <article class="blok sol" data-blok="1" aria-labelledby="h-oku">
+          <figure class="gorsel"><picture><source srcset="media/sahne-1.webp" type="image/webp"><img src="media/sahne-1.jpg" alt="Sistem günlüğü satırları nokta olarak yazılıyor" width="1200" height="600" loading="lazy"></picture></figure>
+          <p class="mikro"><b class="no">01</b> ADIM 01 / 04 · KAYNAK</p>
+          <h2 id="h-oku">Oku</h2>
+          <p>Bağlantılar çekirdeğin TCP tablosundan, başarısız SSH girişleri sistem günlüğünden okunur. İsteğe bağlı algılayıcı UDP, ICMP ve SYN sellerinin kaynaklarını yalnızca paket başlıklarından sayar; içerik okumaz.</p>
+          <p class="detay">/proc/net/tcp<br>journalctl -u ssh<br>nexguard-sensor (CAP_NET_RAW)</p>
+        </article>
+
+        <article class="blok sag" data-blok="2" aria-labelledby="h-say">
+          <figure class="gorsel"><picture><source srcset="media/sahne-2.webp" type="image/webp"><img src="media/sahne-2.jpg" alt="Bir kaynağın sırtı eşik düzlemini deliyor" width="1200" height="600" loading="lazy"></picture></figure>
+          <p class="mikro"><b class="no">02</b> ADIM 02 / 04 · EŞİK</p>
+          <h2 id="h-say">Ölç</h2>
+          <p>Paket hızı, bant, yarı açık bağlantılar ve IP başına bağlantı 5 saniyede bir ölçülür. Eşik aşılınca durum renk değiştirir ve nedeni yanında yazar; Telegram ya da webhook ile haber verilir.</p>
+          <p class="detay">NORMAL · UYARI · SALDIRI<br>eşikler panelden ayarlanır</p>
+        </article>
+
+        <article class="blok sol" data-blok="3" aria-labelledby="h-engelle">
+          <figure class="gorsel"><picture><source srcset="media/sahne-3.webp" type="image/webp"><img src="media/sahne-3.jpg" alt="Tepe köşeli parantezle kilitleniyor" width="1200" height="600" loading="lazy"></picture></figure>
+          <p class="mikro"><b class="no">03</b> ADIM 03 / 04 · YANIT</p>
+          <h2 id="h-engelle">Engelle</h2>
+          <p>Otomatik engel varsayılan olarak kapalıdır. Açarsan ya da bir IP'yi panelden onaylarsan, adres engel yardımcısıyla nftables'a yazılır. İzin listesindeki adresler ve açık SSH oturumların asla engellenmez.</p>
+          <p class="detay">nft table inet nexguard<br>süre 1 dk – 24 sa</p>
+        </article>
+
+        <article class="blok sag" data-blok="4" aria-labelledby="h-bildir">
+          <figure class="gorsel"><picture><source srcset="media/sahne-4.webp" type="image/webp"><img src="media/sahne-4.jpg" alt="Nokta histogramı ve Tux" width="1200" height="600" loading="lazy"></picture></figure>
+          <p class="mikro"><b class="no">04</b> ADIM 04 / 04 · PANEL</p>
+          <h2 id="h-bildir">Gör</h2>
+          <p>Bağlı IP'ler yerel veritabanıyla ülke ve ağ sağlayıcısına eşlenir; 2B haritada ya da döndürülebilen 3B kürede görünür. Bir IP'ye tıklayınca panelin onun hakkında bildiği her şey tek çekmecede açılır.</p>
+          <p class="detay">127.0.0.1:8787<br>ssh -L ile tünel</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" id="moduller" aria-labelledby="h-moduller">
+      <div class="kap">
+        <p class="mikro">05 · MODÜLLER</p>
+        <h2 id="h-moduller">Panelde neler var</h2>
+        <p class="giris">Panel FastAPI ile yazılmış, root olmadan çalışır ve yalnızca <code>127.0.0.1</code> üzerinde dinler. Engelleme ve paket algılama ayrı, küçük yardımcılarla yapılır; panel yalnızca istek dosyası yazar, yardımcı onu doğrulayıp uygular.</p>
+        <ol class="tablo">
+          <li><span class="i">01</span><div><b>Genel bakış ve DDoS izleme.</b> Durum bandı, paket ve bant grafikleri, yarı açık bağlantılar, son olaylar. Eşik aşımında bildirim.</div></li>
+          <li><span class="i">02</span><div><b>Canlı harita.</b> Bağlı kaynaklar ülkelere göre; 2B harita ya da 3B küre. Kürede ülke sınırları ya da uydu görüntüsü (gri veya renkli), tekerlekle 8 kata kadar yakınlaştırma.</div></li>
+          <li><span class="i">03</span><div><b>Coğrafya.</b> IP'lerin ülke, ağ sağlayıcısı ve Tor/VPN işaretleri; DB-IP Lite veritabanıyla yerel sorgu. Görünen konum çoğu zaman aracı ağdır ve panel bunu açıkça söyler.</div></li>
+          <li><span class="i">04</span><div><b>Denetim.</b> SSH ayarları, açık portlar, güvenlik duvarı, kullanıcılar, dosya izinleri ve çekirdek ayarları okunur; her bulgu için komut önerilir. Hiçbir şey kendiliğinden değiştirilmez.</div></li>
+          <li><span class="i">05</span><div><b>Savunma.</b> Elle ya da isteğe bağlı otomatik engel, izin listesi, Cloudflare saldırı modu ve hat dolduğunda sağlayıcıya ölçümlerle süzme isteği.</div></li>
+          <li><span class="i">06</span><div><b>Tuzaklar.</b> Ayrı bir portta sahte SSH (Cowrie): saldırgan girdiğini sanır, denediği parolalar ve yazdığı komutlar kaydedilir. Çok portlu TCP tuzağı ise Telnet, RDP, VNC gibi portlarda bağlananın ilk baytlarını kaydeder; engellemez.</div></li>
+          <li><span class="i">07</span><div><b>IP detayı.</b> Tablodaki bir IP'ye ya da küredeki ülkeye tıklayınca: ülke ve ağ, anlık bağlantı, SSH denemeleri, tuzak kayıtları, olaylar. Engelleme ve izin listesi iki adımlı onayla.</div></li>
+          <li><span class="i">08</span><div><b>Filo.</b> Birden çok sunucunun özetini tek panelde toplar; her sunucu yalnızca okuma yetkili bir anahtarla bağlanır.</div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="panel" id="sinirlar" aria-labelledby="h-sinir">
+      <div class="kap">
+        <p class="mikro">06 · SINIRLAR</p>
+        <h2 id="h-sinir">Yapamadıkları</h2>
+        <div class="iki">
+          <ol class="tablo">
+            <li><span class="i">01</span><div><b>Hattı dolduran saldırı sunucuda durmaz.</b> Bağlantı dolunca sunucudaki kural işe yaramaz. Panel tespit eder, haber verir, sağlayıcıya ve Cloudflare'e yönelik adımı önerir ya da sen açtıysan atar.</div></li>
+            <li><span class="i">02</span><div><b>Harita yalnızca TCP bağlantılarını gösterir.</b> UDP ve ICMP sellerinin kaynakları yalnız algılayıcı kuruluysa ve yalnız paket başlıklarından görünür.</div></li>
+            <li><span class="i">03</span><div><b>Konum ülke düzeyindedir.</b> Görünen konum çoğu zaman barındırma ağı, VPN ya da Tor çıkışıdır; saldırganın gerçek yeri değildir.</div></li>
+            <li><span class="i">04</span><div><b>Tuzak Docker gerektirir.</b> Sahte SSH çekirdek kurulumun parçası değildir. TCP tuzağının portlarına dışarıdan ulaşılması için güvenlik duvarında açılmaları gerekir.</div></li>
+            <li><span class="i">05</span><div><b>Bağımsız denetimden geçmedi.</b> Paneli internete doğrudan açma; SSH tüneli kullan, açman gerekirse önünde HTTPS ve iki adımlı doğrulama olsun.</div></li>
+          </ol>
+          <aside class="not" role="note">
+            <p class="mikro"><span class="a">[ VERİ NEREYE GİDER ]</span></p>
+            <p>IP sorguları ve ölçümler makinende kalır. Panel dışarıyla yalnızca senin açtığın durumlarda konuşur: coğrafya veritabanını indirirken (IP göndermez), bildirim kanalına uyarı yollarken, Cloudflare anahtarı girdiysen ve filoya sunucu eklediysen.</p>
+            <p>Tuzağı açarsan ayrı bir port internete açılır. Saldırganların denediği parolalar sunucuda düz metin saklanır; o porta kendi parolanı yazma.</p>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="kurulum" aria-labelledby="h-kurulum">
+      <div class="kap">
+        <p class="mikro">07 · KURULUM</p>
+        <h2 id="h-kurulum">Kurulum</h2>
+        <p class="giris">Python ile çalışır, veritabanı sunucusu gerektirmez. Debian 13 ve Python 3.13 üzerinde denendi.</p>
+        <div class="kod-izgara">
+          <figure class="kod"><figcaption><span><b>1</b> KODU AL</span> <button type="button" class="kopya" data-kopya>KOPYALA</button></figcaption>
+<pre><code>git clone https://github.com/m3lonxd/nexguard.git /opt/nexguard
+cd /opt/nexguard</code></pre></figure>
+          <figure class="kod"><figcaption><span><b>2</b> SANAL ORTAM</span> <button type="button" class="kopya" data-kopya>KOPYALA</button></figcaption>
+<pre><code>python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt</code></pre></figure>
+          <figure class="kod"><figcaption><span><b>3</b> YÖNETİCİ HESABI</span> <button type="button" class="kopya" data-kopya>KOPYALA</button></figcaption>
+<pre><code>.venv/bin/python -m nexguard create-admin yonetici</code></pre></figure>
+          <figure class="kod"><figcaption><span><b>4</b> SERVİS · ROOT OLMAYAN KULLANICI</span> <button type="button" class="kopya" data-kopya>KOPYALA</button></figcaption>
+<pre><code>[Service]
+User=nexguard
+WorkingDirectory=/opt/nexguard
+Environment=NEXGUARD_DATA=/var/lib/nexguard
+ExecStart=/opt/nexguard/.venv/bin/python -m nexguard run
+Restart=on-failure
+StateDirectory=nexguard
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true</code></pre></figure>
+          <figure class="kod"><figcaption><span><b>5</b> ALGILAYICI, ENGEL, TCP TUZAĞI</span> <button type="button" class="kopya" data-kopya>KOPYALA</button></figcaption>
+<pre><code>sudo sh /opt/nexguard/deploy/kur.sh</code></pre></figure>
+          <figure class="kod"><figcaption><span><b>6</b> BAĞLAN · KENDİ BİLGİSAYARINDAN</span> <button type="button" class="kopya" data-kopya>KOPYALA</button></figcaption>
+<pre><code>ssh -N -L 8788:127.0.0.1:8787 kullanici@sunucu
+# tarayıcıda: http://localhost:8788</code></pre></figure>
+        </div>
+        <p class="alt-not">Servis dosyası <code>/etc/systemd/system/nexguard.service</code>, sonra <code>sudo systemctl enable --now nexguard</code>. Kendi adreslerini <code>/etc/nexguard/izinli</code> dosyasına yaz; bunlar asla engellenmez. İlk iş: Ayarlar'dan iki adımlı doğrulamayı aç, Coğrafya'dan veritabanını indir, Denetim'i çalıştır, bir bildirim kanalı ekle.</p>
+      </div>
+    </section>
+
+    <section class="kapanis" id="kapanis" aria-labelledby="h-son">
+      <figure class="gorsel"><picture><source srcset="media/sahne-4.webp" type="image/webp"><img src="media/sahne-4.jpg" alt="" width="1200" height="600" loading="lazy"></picture></figure>
+      <div class="kap">
+        <p class="mikro">08 · KAYNAK</p>
+        <h2 id="h-son">Kaynak kod ve testler GitHub'da.</h2>
+        <div class="cta"><a class="btn" href="https://github.com/m3lonxd/nexguard" rel="noopener">GitHub ↗</a></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="alt-bilgi">
+    <span>NEXGUARD 0.1.0</span>
+    <a href="https://github.com/m3lonxd/nexguard" rel="noopener">github.com/m3lonxd/nexguard</a>
+    <span>Coğrafya verisi: <a href="https://db-ip.com" rel="noopener">DB-IP Lite</a> (CC BY 4.0) · Harita: Natural Earth · Uydu: NASA Blue Marble · Tuzak: Cowrie · Yazı tipleri: Figtree, JetBrains Mono (OFL)</span>
+    <a href="#icerik">BAŞA DÖN</a>
+  </footer>
+
+  <script src="sahne.js?v=1" defer></script>
+  <script src="site.js?v=1" defer></script>
+</body>
+</html>
