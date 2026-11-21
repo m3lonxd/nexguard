@@ -1,56 +1,56 @@
 <p align="center">
-  <img src="docs/banner.svg" alt="NexGuard: tek sunucunun güvenlik paneli" width="100%">
+  <img src="docs/banner.webp" alt="NexGuard: see what's happening on your server, without the data leaving it." width="100%">
 </p>
 
 <p align="center">
-  <b>Sunucunun güvenlik durumunu tek ekranda gösteren, tamamen yerel çalışan panel.</b><br>
+  <b>A fully local panel that shows your server's security state on one screen.</b><br>
   <a href="https://nexguard.duckdns.org">nexguard.duckdns.org</a>
-  Veri makineden çıkmaz. Panel öneri sunar, hiçbir şeyi kendi kendine değiştirmez.
+  Data never leaves the machine. The panel suggests fixes; it never changes anything on its own.
 </p>
 
 ---
 
-## Ne işe yarar
+## What it does
 
-Bir saldırı şüphesinde sunucuya bakan kişi, panele girdiğinde saniyeler içinde şunları görür:
+When you suspect an attack and open the panel, within seconds you see:
 
-- sunucu güvenli mi, yoksa saldırı altında mı (durum renk ve metinle ayrı gösterilir)
-- hangi ülkelerden, hangi ağlardan bağlantı geliyor
-- SSH ve sistem ayarlarında hangi açıklar var, ne yapılmalı
+- whether the server is safe or under attack (state is shown with both color and text)
+- which countries and networks connections are coming from
+- which weaknesses exist in SSH and system settings, and what to do about them
 
-## Modüller
+## Modules
 
-| Modül | Ne gösterir |
+| Module | What it shows |
 | --- | --- |
-| **Genel Bakış** | Durum bandı, son olaylar, özet sayılar |
-| **Denetim** | OPSEC kontrolleri: SSH ayarları, boş parolalar, parolasız sudo, SUID dosyalar. Her bulgu için düzeltme önerisi, uygulama yok |
-| **DDoS izleme** | Bağlantı sayıları ve eşik aşımında bildirim (Telegram, webhook) |
-| **Canlı harita** | TCP bağlantı kaynaklarının dünya haritasında gösterimi. 2B harita ya da döndürülebilen 3B küre; kürede ülke sınırları ya da uydu görüntüsü (gri veya renkli), tekerlek ve +/− ile 8 kata kadar yakınlaştırma |
-| **Coğrafya** | IP'lerin ülke, ASN ve Tor/VPN işaretleri. DB-IP Lite ile yerel sorgu |
-| **Tuzak** | SSH tuzağındaki denemeler: denenen parolalar, komutlar, kaynak IP'ler. Ayrıca çok portlu TCP tuzağı (Telnet, RDP, VNC gibi portlarda bağlananı ve ilk baytlarını kaydeder, engellemez) |
-| **IP detayı** | Tablolardaki her IP'ye ya da küredeki ülkeye tıklayınca açılan çekmece: ülke/ASN, anlık bağlantı, SSH denemeleri, tuzak kayıtları, olaylar. Engelleme, engel kaldırma ve izin listesi iki adımlı onayla yapılır |
-| **Ayarlar** | Parola değişimi, 2FA (TOTP) kurulumu, bildirim kanalları |
+| **Overview** | Status band, recent events, summary counts |
+| **Audit** | OPSEC checks: SSH settings, empty passwords, passwordless sudo, SUID files. A suggested fix for every finding, nothing applied |
+| **DDoS watch** | Connection counts and alerts when a threshold is crossed (Telegram, webhook) |
+| **Live map** | TCP connection sources on a world map. Flat 2D map or a rotatable 3D globe; the globe shows country borders or satellite imagery (gray or color), zoom up to 8× with the wheel or +/− |
+| **Geography** | Country, ASN and Tor/VPN flags for IPs. Local lookups with DB-IP Lite |
+| **Honeypot** | Attempts against the SSH honeypot: tried passwords, commands, source IPs. Plus a multi-port TCP trap (records who connects on ports like Telnet, RDP and VNC and their first bytes; it does not block) |
+| **IP details** | A drawer that opens when you click any IP in a table or a country on the globe: country/ASN, live connections, SSH attempts, honeypot records, events. Block, unblock and allowlist actions need a two-step confirmation |
+| **Settings** | Password change, 2FA (TOTP) setup, notification channels |
 
-## Gizlilik ve güvenlik
+## Privacy and security
 
-- **Yerel çalışır.** Panel varsayılan olarak `127.0.0.1:8787` üzerinde dinler. Uzaktan erişim SSH tüneliyle yapılır.
-- **Root gerektirmez.** Sistem bilgisi `/proc`, systemd ve nftables üzerinden okunur.
-- **Veri dışarı çıkmaz.** IP sorguları yerel veritabanında yapılır.
-- **Giriş:** kullanıcı adı ve parola (argon2 hash), isteğe bağlı TOTP, CSRF koruması, giriş denemelerine sınır.
-- **Öneri, uygulama yok.** Panel düzeltme komutu gösterir; çalıştırmaz.
+- **Runs locally.** The panel listens on `127.0.0.1:8787` by default. Remote access goes through an SSH tunnel.
+- **No root needed.** System information is read from `/proc`, systemd and nftables.
+- **No data leaves the machine.** IP lookups run against a local database.
+- **Login:** username and password (argon2 hash), optional TOTP, CSRF protection, rate-limited login attempts.
+- **Suggests, never applies.** The panel shows the fix command; it does not run it.
 
-## Sınırlar
+## Limits
 
-Dürüstlük ürünün parçası:
+Honesty is part of the product:
 
-- Harita yalnızca TCP bağlantılarını gösterir. Hat dolduran UDP veya ICMP saldırılarının kaynağı görünmez.
-- Hacimli (volumetrik) saldırılar sunucuda durdurulamaz. Panel tespit, bildirim ve sertleştirme önerisi sunar.
-- TCP tuzağı yalnızca kaydeder; portlarına dışarıdan ulaşılması için güvenlik duvarında açılmaları gerekir. 22, 53, 80, 443 ve panel portu tuzak olamaz.
-- 3B küre WebGL2 ister; desteklemeyen tarayıcıda 2B harita kullanılır.
+- The map only shows TCP connections. The source of UDP or ICMP floods is not visible.
+- Volumetric attacks cannot be stopped on the server itself. The panel offers detection, alerts and hardening advice.
+- The TCP trap only records; its ports must be opened in the firewall to be reachable from outside. Ports 22, 53, 80, 443 and the panel port cannot be traps.
+- The 3D globe needs WebGL2; browsers without it get the 2D map.
 
-## Kurulum
+## Installation
 
-Python 3 gerekir (proje 3.13 ile test edildi).
+Requires Python 3 (tested with 3.13).
 
 ```bash
 git clone https://github.com/m3lonxd/nexguard.git
@@ -58,60 +58,60 @@ cd nexguard
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-# İlk yönetici hesabı (en az 12 karakter parola)
-.venv/bin/python -m nexguard create-admin <kullanici-adi>
+# First admin account (password of at least 12 characters)
+.venv/bin/python -m nexguard create-admin <username>
 
-# Paneli başlat
+# Start the panel
 .venv/bin/python -m nexguard run
 ```
 
-Tarayıcıda `http://127.0.0.1:8787` adresini aç.
+Open `http://127.0.0.1:8787` in your browser.
 
-Uzak sunucuya kurduysan paneli SSH tüneliyle aç:
+If you installed it on a remote server, open the panel through an SSH tunnel:
 
 ```bash
-ssh -N -L 8788:127.0.0.1:8787 kullanici@sunucu
+ssh -N -L 8788:127.0.0.1:8787 user@server
 ```
 
-Sonra `http://localhost:8788`.
+Then go to `http://localhost:8788`.
 
-### Ek bileşenler (isteğe bağlı, root)
+### Optional components (root)
 
-Panel `/opt/nexguard` altında `nexguard.service` olarak kuruluysa:
+If the panel is installed under `/opt/nexguard` as `nexguard.service`:
 
 ```bash
 sudo sh deploy/kur.sh
 ```
 
-Paket algılayıcıyı (`nexguard-sensor`), engel yardımcısını (`nexguard-engel`) ve TCP tuzağını (`nexguard-tcptuzak`) kurar. TCP tuzağı panelden açılana kadar hiçbir port dinlemez; yalnızca `CAP_NET_BIND_SERVICE` yetkisiyle çalışır. Açtığın tuzak portlarını güvenlik duvarında da aç (ör. `ufw allow 2323/tcp`).
+This installs the packet sensor (`nexguard-sensor`), the block helper (`nexguard-engel`) and the TCP trap (`nexguard-tcptuzak`). The TCP trap listens on no port until you enable it in the panel, and runs with only the `CAP_NET_BIND_SERVICE` capability. Open the trap ports you enable in the firewall too (e.g. `ufw allow 2323/tcp`).
 
-## Yapılandırma
+## Configuration
 
-| Ortam değişkeni | Varsayılan | Açıklama |
+| Environment variable | Default | Description |
 | --- | --- | --- |
-| `NEXGUARD_HOST` | `127.0.0.1` | Dinlenecek adres. Dışarı açmak için değiştirme, SSH tüneli kullan |
-| `NEXGUARD_PORT` | `8787` | Panel portu |
-| `NEXGUARD_DATA` | `~/.local/share/nexguard` | Veritabanı, oturum anahtarı ve coğrafya verisi |
-| `NEXGUARD_COWRIE_LOG` | boş | Cowrie JSON günlüğü yolu; tuzak modülü bunu okur |
+| `NEXGUARD_HOST` | `127.0.0.1` | Address to listen on. Don't change it to expose the panel; use an SSH tunnel |
+| `NEXGUARD_PORT` | `8787` | Panel port |
+| `NEXGUARD_DATA` | `~/.local/share/nexguard` | Database, session key and geography data |
+| `NEXGUARD_COWRIE_LOG` | empty | Path to the Cowrie JSON log; the honeypot module reads it |
 
-## Testler
+## Tests
 
 ```bash
 .venv/bin/python -m pytest -q
 ```
 
-## Yapı
+## Layout
 
 ```
 nexguard/
-  app.py          FastAPI uygulaması, rotalar, giriş
-  security.py     argon2, CSRF, TOTP, giriş sınırlayıcı
-  checks.py       OPSEC denetimleri
-  geoip.py        IP → ülke/ASN, Tor listesi
-  modules/        Genel Bakış, Denetim, DDoS, Harita, Coğrafya, Tuzak, Ayarlar
-  templates/      Jinja2 şablonları
-  ipdetail.py     IP detay çekmecesinin verisi ve elle engel / izin listesi işlemleri
-  tcptuzak.py     çok portlu TCP tuzağı: servis ve panel tarafı
-  static/         tek CSS dosyası, harita ve 3B küre betikleri, detay çekmecesi, uydu dokusu (NASA Blue Marble, kamu malı)
-tests/            pytest testleri
+  app.py          FastAPI app, routes, login
+  security.py     argon2, CSRF, TOTP, login rate limiter
+  checks.py       OPSEC checks
+  geoip.py        IP → country/ASN, Tor list
+  modules/        Overview, Audit, DDoS, Map, Geography, Honeypot, Settings
+  templates/      Jinja2 templates
+  ipdetail.py     IP detail drawer data and manual block / allowlist actions
+  tcptuzak.py     multi-port TCP trap: service and panel side
+  static/         single CSS file, map and 3D globe scripts, detail drawer, satellite texture (NASA Blue Marble, public domain)
+tests/            pytest tests
 ```
